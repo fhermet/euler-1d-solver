@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1D Euler Equations Solver — Interactive Finite Volume Scheme Comparison</title>
+    <meta name="description" content="Compare 59 finite volume schemes (Godunov, HLLC, Roe, MUSCL, WENO) on 1D Euler equations for compressible gas dynamics. Interactive Streamlit app with Riemann problems, convergence studies, and Fourier analysis.">
+    <meta name="keywords" content="Euler equations, 1D, CFD, finite volume, Riemann solver, Godunov, HLLC, Roe, MUSCL, WENO, ENO, compressible flow, gas dynamics, numerical methods, Streamlit, Python">
+    <meta name="author" content="fhermet">
+    <link rel="canonical" href="https://fhermet.github.io/euler-1d-solver/">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="1D Euler Equations Solver — Interactive Finite Volume Scheme Comparison">
+    <meta property="og:description" content="Compare 59 finite volume schemes on 1D Euler equations. Riemann problems, convergence studies, Fourier analysis. Free interactive app.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://fhermet.github.io/euler-1d-solver/">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="1D Euler Equations Solver">
+    <meta name="twitter:description" content="Compare 59 finite volume schemes on 1D Euler equations. Free interactive Streamlit app.">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "1D Euler Equations Solver",
+        "description": "Interactive finite volume solver for 1D Euler equations of compressible gas dynamics. Compare 59 numerical schemes on classical Riemann problems and smooth solutions.",
+        "url": "https://euler-1d-solver.streamlit.app/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "offers": { "@type": "Offer", "price": "0" },
+        "author": { "@type": "Person", "name": "fhermet", "url": "https://github.com/fhermet" }
+    }
+    </script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0e1117;
+            color: #fafafa;
+            line-height: 1.6;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+        header { text-align: center; padding: 3rem 0 2rem; }
+        h1 { font-size: 2.4rem; margin-bottom: 0.5rem; }
+        h1 span { color: #ff4b4b; }
+        .subtitle { font-size: 1.15rem; color: #a0a0a0; max-width: 650px; margin: 0 auto 2rem; }
+        .cta {
+            display: inline-block;
+            background: #ff4b4b;
+            color: white;
+            text-decoration: none;
+            padding: 0.9rem 2.2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .cta:hover { background: #e03e3e; }
+        .github-link {
+            display: inline-block;
+            margin-left: 1rem;
+            color: #a0a0a0;
+            text-decoration: none;
+            padding: 0.9rem 1.5rem;
+            border: 1px solid #333;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            transition: border-color 0.2s;
+        }
+        .github-link:hover { border-color: #888; color: #fff; }
+        section { margin: 3rem 0; }
+        h2 { font-size: 1.5rem; margin-bottom: 1rem; color: #ff4b4b; }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background: #1a1d24;
+            border: 1px solid #2a2d34;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+        .card h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+        .card p { color: #a0a0a0; font-size: 0.95rem; }
+        .schemes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .scheme-group h3 { font-size: 1rem; margin-bottom: 0.4rem; }
+        .scheme-group ul { list-style: none; color: #a0a0a0; font-size: 0.9rem; }
+        .scheme-group ul li::before { content: "- "; color: #ff4b4b; }
+        .test-cases { color: #a0a0a0; }
+        .test-cases li { margin-bottom: 0.3rem; }
+        footer { text-align: center; color: #555; padding: 3rem 0 2rem; font-size: 0.85rem; }
+        footer a { color: #888; }
+        @media (max-width: 600px) {
+            h1 { font-size: 1.7rem; }
+            .cta, .github-link { display: block; margin: 0.5rem 0; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>1D Euler Equations <span>Solver</span></h1>
+            <p class="subtitle">
+                Compare 59 finite volume schemes on compressible gas dynamics problems.
+                MUSCL, WENO, Roe, HLLC, Godunov and more — with convergence analysis and Fourier diagnostics.
+            </p>
+            <a href="https://euler-1d-solver.streamlit.app/" class="cta">Launch App</a>
+            <a href="https://github.com/fhermet/euler-1d-solver" class="github-link">GitHub</a>
+        </header>
+
+        <section>
+            <h2>Features</h2>
+            <div class="features">
+                <div class="card">
+                    <h3>59 Numerical Schemes</h3>
+                    <p>11 standalone flux solvers combined with 6 high-order reconstructions (MUSCL, ENO2, WENO3, WENO5) and 5 slope limiters.</p>
+                </div>
+                <div class="card">
+                    <h3>Exact Riemann Solver</h3>
+                    <p>Full exact solution for reference: Newton iteration on pressure with PVRS initial guess, vectorized NumPy sampling.</p>
+                </div>
+                <div class="card">
+                    <h3>Convergence Studies</h3>
+                    <p>Mesh refinement with L1, L2, Linf error norms. Automatic order estimation by log-log regression.</p>
+                </div>
+                <div class="card">
+                    <h3>Fourier Analysis</h3>
+                    <p>Numerical dissipation and dispersion curves for every scheme. Linearized analysis around a uniform state.</p>
+                </div>
+                <div class="card">
+                    <h3>Time Integration</h3>
+                    <p>RK1 through RK5 (Dormand-Prince). Adaptive time stepping with CFL condition. SSP-RK3 for TVD preservation.</p>
+                </div>
+                <div class="card">
+                    <h3>9 Test Cases</h3>
+                    <p>Classical Riemann problems (Sod, Lax, Shu-Osher, two shocks) and smooth solutions (entropy wave, acoustic wave) for order verification.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Available Schemes</h2>
+            <div class="schemes-grid">
+                <div class="scheme-group">
+                    <h3>Flux Solvers (order 1)</h3>
+                    <ul>
+                        <li>Godunov (exact)</li>
+                        <li>Roe (+/- entropy fix)</li>
+                        <li>HLLC / HLL</li>
+                        <li>Rusanov</li>
+                        <li>AUSM+ / AUSM+-up</li>
+                        <li>Lax-Friedrichs</li>
+                        <li>Lax-Wendroff</li>
+                        <li>JST</li>
+                    </ul>
+                </div>
+                <div class="scheme-group">
+                    <h3>Reconstructions</h3>
+                    <ul>
+                        <li>MUSCL (order 2)</li>
+                        <li>ENO2 (order 2)</li>
+                        <li>WENO3 JS/Z (order 3)</li>
+                        <li>WENO5 JS/Z (order 5)</li>
+                    </ul>
+                </div>
+                <div class="scheme-group">
+                    <h3>Slope Limiters</h3>
+                    <ul>
+                        <li>Minmod</li>
+                        <li>Van Leer</li>
+                        <li>Superbee</li>
+                        <li>MC (monotonized central)</li>
+                        <li>Van Albada</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Test Cases</h2>
+            <ul class="test-cases">
+                <li><strong>Sod shock tube</strong> — rarefaction + contact + shock</li>
+                <li><strong>Lax problem</strong> — stronger waves than Sod</li>
+                <li><strong>Double rarefaction</strong> — symmetric rarefactions, near-vacuum</li>
+                <li><strong>Stationary contact</strong> — pure numerical diffusion measurement</li>
+                <li><strong>Near vacuum</strong> — extreme double rarefaction (93% of vacuum threshold)</li>
+                <li><strong>Two shocks</strong> — strong shock collision (Toro test 4)</li>
+                <li><strong>Shu-Osher</strong> — Mach 3 shock in sinusoidal density</li>
+                <li><strong>Entropy wave</strong> — smooth advection for order verification</li>
+                <li><strong>Acoustic wave</strong> — isentropic perturbation for order verification</li>
+            </ul>
+        </section>
+
+        <footer>
+            <p>
+                Built with <a href="https://numpy.org/">NumPy</a> and <a href="https://streamlit.io/">Streamlit</a>.
+                Source code on <a href="https://github.com/fhermet/euler-1d-solver">GitHub</a>.
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
