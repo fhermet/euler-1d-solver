@@ -1,107 +1,120 @@
 # Solveur Euler 1D
 
-Solveur modulaire pour les equations d'Euler 1D instationnaires (gaz parfait), ecrit en Python/NumPy. Implementations de 6 solveurs de Riemann a l'ordre 1 et 5 schemas MUSCL a l'ordre 2, avec etude de convergence et comparaison de limiteurs.
+Solveur modulaire pour les equations d'Euler 1D instationnaires (gaz parfait), ecrit en Python/NumPy. Interface interactive Streamlit pour comparer 59 schemas de volumes finis sur des problemes de Riemann classiques et des solutions lisses, avec etude de convergence et analyse de Fourier.
 
 ## Prerequis
 
 - Python >= 3.10
-- NumPy
-- Matplotlib
-- Pandas
+- NumPy, Pandas, Matplotlib, Plotly, Streamlit
 
 ```bash
-pip install numpy matplotlib pandas
+pip install -r requirements.txt
+```
+
+## Lancement
+
+```bash
+streamlit run Solveur_Euler_1D.py
 ```
 
 ## Architecture du code
 
 ```
+Solveur_Euler_1D.py    Point d'entree Streamlit (page principale)
+ui_common.py           Style Plotly, constantes, selecteurs de schemas partages
+pages/
+└── 2_Analyse_de_Fourier.py   Page Streamlit : dissipation et dispersion numerique
+
 euler1d/
 ├── config.py          Dataclasses de configuration (gaz, maillage, temps, probleme)
 ├── physics.py         EOS, conversions primitif/conservatif, flux physique
 ├── riemann.py         Solveur de Riemann exact (vectorise numpy)
 ├── boundary.py        Conditions aux limites (cellules fantomes)
-├── solver.py          Boucle en temps (Euler explicite / RK2)
-├── results.py         Export DataFrame, solution exacte, normes d'erreur
-├── test_cases.py      Cas tests predefinis (Sod, Lax, double rarefaction)
+├── solver.py          Boucle en temps (RK1 a RK5)
+├── results.py         Solution exacte, normes d'erreur, convergence
+├── fourier_analysis.py  Analyse de dissipation/dispersion numerique
+├── test_cases.py      Cas tests predefinis
 └── schemes/
     ├── base.py              Classe abstraite NumericalScheme
-    ├── reconstruction.py    Reconstruction MUSCL + limiteurs de pente
-    ├── order1/
-    │   ├── lax_friedrichs.py  Schema de Lax-Friedrichs
-    │   ├── rusanov.py         Schema de Rusanov
-    │   ├── hll.py             Schema HLL
-    │   ├── hllc.py            Schema HLLC
-    │   ├── roe.py             Schema de Roe avec correction entropique
-    │   └── godunov.py         Schema de Godunov (solveur exact)
-    └── order2/
-        ├── muscl_rusanov.py   MUSCL-Rusanov
-        ├── muscl_hll.py       MUSCL-HLL
-        ├── muscl_hllc.py      MUSCL-HLLC
-        ├── muscl_roe.py       MUSCL-Roe
-        └── muscl_godunov.py   MUSCL-Godunov
+    ├── flux/
+    │   ├── rusanov.py         Rusanov (Lax-Friedrichs local)
+    │   ├── hll.py             HLL (2 ondes)
+    │   ├── hllc.py            HLLC (3 ondes)
+    │   ├── roe.py             Roe avec correction entropique
+    │   ├── godunov.py         Godunov (solveur exact)
+    │   ├── ausm_plus.py       AUSM+ et AUSM+-up
+    │   ├── lax_friedrichs.py  Lax-Friedrichs (centre)
+    │   ├── lax_wendroff.py    Lax-Wendroff (centre)
+    │   └── jst.py             JST (centre)
+    └── reconstruction/
+        ├── limiters.py    Limiteurs de pente (minmod, van-leer, superbee, mc, van-albada)
+        ├── muscl.py       Reconstruction MUSCL (ordre 2)
+        ├── eno.py         Reconstruction ENO2 (ordre 2)
+        ├── weno3.py       WENO3 JS et Z (ordre 3)
+        └── weno5.py       WENO5 JS et Z (ordre 5)
 ```
 
 ## Schemas disponibles
 
-### Ordre 1
+### Flux numeriques (ordre 1)
 
 | Schema | Cle | Description |
 |---|---|---|
-| Lax-Friedrichs | `lax-friedrichs` | Dissipation globale, le plus simple |
+| Lax-Friedrichs | `lax-friedrichs` | Dissipation globale, schema centre |
 | Rusanov | `rusanov` | Dissipation locale (Lax-Friedrichs local) |
 | HLL | `hll` | 2 ondes, pas de contact |
 | HLLC | `hllc` | 3 ondes, capture le contact |
 | Roe | `roe` | Linearisation + correction entropique |
+| Roe (sans correction) | `roe-nc` | Roe sans correction entropique |
 | Godunov | `godunov` | Solveur de Riemann exact |
+| AUSM+ | `ausm+` | Splitting Mach/pression |
+| AUSM+-up | `ausm+-up` | AUSM+ ameliore (bas Mach) |
+| Lax-Wendroff | `lax-wendroff` | Ordre 2 en temps et espace, schema centre |
+| JST | `jst` | Jameson-Schmidt-Turkel, schema centre |
 
-### Ordre 2 (MUSCL + RK2)
+### Reconstructions d'ordre eleve
 
-| Schema | Cle | Solveur de Riemann |
-|---|---|---|
-| MUSCL-Rusanov | `muscl-rusanov` | Rusanov |
-| MUSCL-HLL | `muscl-hll` | HLL |
-| MUSCL-HLLC | `muscl-hllc` | HLLC |
-| MUSCL-Roe | `muscl-roe` | Roe |
-| MUSCL-Godunov | `muscl-godunov` | Godunov (exact) |
+| Reconstruction | Cle | Ordre | Composable avec |
+|---|---|---|---|
+| MUSCL | `muscl-{flux}` | 2 | Rusanov, HLL, HLLC, Roe, Roe-NC, Godunov, AUSM+, AUSM+-up |
+| ENO2 | `eno2-{flux}` | 2 | idem |
+| WENO3-JS | `weno3-{flux}` | 3 | idem |
+| WENO3-Z | `wenoz3-{flux}` | 3 | idem |
+| WENO5-JS | `weno5-{flux}` | 5 | idem |
+| WENO5-Z | `wenoz5-{flux}` | 5 | idem |
 
-Limiteurs disponibles : `minmod`, `van-leer` (defaut), `superbee`, `mc`, `van-albada`.
+8 flux composables x 6 reconstructions + 11 schemas autonomes = **59 schemas** au total.
 
-## Utilisation
+Limiteurs MUSCL : `minmod`, `van-leer` (defaut), `superbee`, `mc`, `van-albada`.
 
-### Scripts en ligne de commande
+## Interface Streamlit
 
-**Comparaison de tous les schemas sur le tube de Sod** :
+### Page principale : Solveur Euler 1D
 
-```bash
-python3 run.py
-```
+| Onglet | Description |
+|---|---|
+| Ordre de convergence | Profils (rho, u, p) + solution exacte, erreurs L1/L2/Linf, convergence en maillage |
+| Evolution temporelle | Animation dans le temps avec slider, solution exacte a t arbitraire |
 
-Produit `sod_comparison.png` avec les profils de densite, vitesse et pression.
+### Page : Analyse de Fourier
 
-**Etude de convergence en maillage** :
+Courbes de dissipation |G(theta)| et dispersion phi/phi_exact pour chaque schema, obtenues par linearisation autour d'un etat uniforme.
 
-```bash
-python3 convergence.py                                # tous les schemas, variable rho (Sod)
-python3 convergence.py -t entropy_wave                # onde d'entropie (solution lisse)
-python3 convergence.py -t acoustic_wave               # onde acoustique (solution lisse)
-python3 convergence.py -t entropy_wave -s rusanov hllc muscl-hllc  # sous-ensemble sur cas lisse
-python3 convergence.py --order 2                      # schemas ordre 2 uniquement
-python3 convergence.py -s hllc roe muscl-hllc         # sous-ensemble de schemas
-python3 convergence.py -s muscl-hllc -l superbee      # MUSCL-HLLC avec limiteur superbee
-python3 convergence.py -v u                           # convergence sur la vitesse
-python3 convergence.py -n 50 100 200 400 800 1600     # resolutions personnalisees
-python3 convergence.py -o convergence_rho.png         # nom du fichier de sortie
-```
+## Cas tests disponibles
 
-**Comparaison des limiteurs de pente** :
+| Cas | Fonction | Type | Description |
+|---|---|---|---|
+| Sod | `sod_shock_tube()` | Riemann | Choc + contact + rarefaction |
+| Lax | `lax_test()` | Riemann | Plus severe que Sod |
+| Double rarefaction | `double_rarefaction()` | Riemann | Deux rarefactions, basse pression |
+| Contact stationnaire | `stationary_contact()` | Riemann | Contact immobile, mesure de diffusion |
+| Quasi-vide | `near_vacuum()` | Riemann | Double detente extreme (93% du seuil de vide) |
+| Deux chocs | `two_shocks()` | Riemann | Collision de chocs forts (Toro test 4) |
+| Shu-Osher | `shu_osher()` | Mixte | Choc Mach 3 dans densite sinusoidale |
+| Onde d'entropie | `entropy_wave()` | Lisse | Advection sinusoidale, verification d'ordre |
+| Onde acoustique | `acoustic_wave()` | Lisse | Perturbation isentropique, verification d'ordre |
 
-```bash
-python3 compare_limiters.py                           # defaut : muscl-hllc
-python3 compare_limiters.py -s muscl-roe              # schema MUSCL au choix
-```
-
-### Utilisation en tant que bibliotheque
+## Utilisation en tant que bibliotheque
 
 ```python
 from euler1d.schemes import get_scheme
@@ -109,76 +122,33 @@ from euler1d.solver import run_simulation
 from euler1d.test_cases import sod_shock_tube
 from euler1d.results import compute_errors, compute_exact_solution, result_to_dataframe
 
-# Configurer et lancer une simulation
 config = sod_shock_tube(n_cells=200)
-scheme = get_scheme("muscl-hllc", limiter="van_leer")
+scheme = get_scheme("muscl-hllc", limiter="van-leer")
 result = run_simulation(config, scheme)
 
-# Exploiter les resultats
 df = result_to_dataframe(result)
 exact = compute_exact_solution(config)
 errors = compute_errors(result, exact)
 print(errors["rho"])  # {'L1': ..., 'L2': ..., 'Linf': ...}
 ```
 
-## Cas tests disponibles
-
-| Cas | Fonction | Description |
-|---|---|---|
-| Sod | `sod_shock_tube()` | Tube a choc classique. Choc droit, contact, rarefaction gauche. |
-| Lax | `lax_test()` | Probleme de Lax. Ondes plus fortes que Sod. |
-| Double rarefaction | `double_rarefaction()` | Probleme 123. Deux rarefactions symetriques, creation de vide. |
-| Onde d'entropie | `entropy_wave()` | Perturbation sinusoidale de densite advectee (CL periodiques). Solution lisse pour verification d'ordre. |
-| Onde acoustique | `acoustic_wave()` | Petite perturbation isentropique (CL periodiques). Solution linearisee pour verification d'ordre. |
-
-## Ajouter un nouveau schema
-
-1. Creer un fichier dans `euler1d/schemes/order1/` ou `order2/`
-2. Heriter de `NumericalScheme`, implementer `name` et `compute_riemann_flux`
-3. Pour l'ordre 2 : definir `order = 2`, `n_ghost = 2`, surcharger `compute_fluxes` avec reconstruction MUSCL
-4. Ajouter une ligne dans `SCHEME_REGISTRY` de `schemes/__init__.py`
-
 ## Documentation theorique
 
-La documentation mathematique et physique detaillee est dans le dossier [`docs/`](docs/) :
+La documentation mathematique detaillee est dans le dossier [`docs/`](docs/) :
 
-1. [Equations d'Euler 1D](docs/01_equations_euler.md) -- systeme d'equations, EOS, variables
-2. [Methode des volumes finis](docs/02_volumes_finis.md) -- discretisation, flux numerique, CFL
-3. [Solveurs de Riemann](docs/03_solveurs_riemann.md) -- les 6 solveurs avec formules et comparaison
-4. [Reconstruction MUSCL](docs/04_reconstruction_muscl.md) -- MUSCL, limiteurs de pente, region de Sweby
-5. [Integration temporelle](docs/05_integration_temporelle.md) -- Euler explicite, RK2, alternatives
-6. [Ordre et convergence](docs/06_ordre_et_convergence.md) -- normes d'erreur, analyse de convergence
-7. [Extensions](docs/07_extensions.md) -- PPM, WENO, DG, idees recues sur l'ordre
-
-## Interface graphique (Streamlit)
-
-Une interface interactive Streamlit unifie toutes les fonctionnalites dans un navigateur web.
-
-### Installation
-
-```bash
-pip install streamlit plotly
-```
-
-### Lancement
-
-```bash
-streamlit run app.py
-```
-
-### Fonctionnalites
-
-| Onglet | Description |
-|---|---|
-| Comparaison de schemas | Profils (rho, u, p) + solution exacte, tableau d'erreurs L1/L2/Linf |
-| Etude de convergence | Graphiques log-log avec pentes de reference, ordres estimes |
-| Comparaison de limiteurs | Profils et convergence par limiteur, reference ordre 1 optionnelle |
-| Animation temporelle | Navigation dans le temps avec slider, solution exacte a t arbitraire |
-
-La barre laterale permet de choisir le cas test, le nombre de cellules, le CFL et le gamma. Les calculs sont caches pour une navigation fluide.
+1. [Equations d'Euler 1D](docs/01_euler_equations.md)
+2. [Probleme de Riemann](docs/02_riemann_problem.md)
+3. [Methode des volumes finis](docs/03_finite_volume.md)
+4. [Schemas de flux](docs/04_flux_schemes.md)
+5. [Reconstructions d'ordre eleve](docs/05_reconstruction.md)
+6. [Integration temporelle](docs/06_time_integration.md)
+7. [Analyse de Fourier](docs/07_fourier_analysis.md)
+8. [Cas tests](docs/08_test_cases.md)
+9. [Bibliographie](docs/bibliography.md)
 
 ## References
 
 1. E. F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd Edition, Springer, 2009.
 2. B. van Leer, "Towards the ultimate conservative difference scheme. V.", *J. Comput. Phys.*, 32, 1979.
 3. P. L. Roe, "Approximate Riemann solvers", *J. Comput. Phys.*, 43, 1981.
+4. G.-S. Jiang, C.-W. Shu, "Efficient implementation of weighted ENO schemes", *J. Comput. Phys.*, 126, 1996.
