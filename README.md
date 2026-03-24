@@ -1,6 +1,10 @@
 # Solveur Euler 1D
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://euler-1d-solver.streamlit.app/)
+
 Solveur modulaire pour les equations d'Euler 1D instationnaires (gaz parfait), ecrit en Python/NumPy. Interface interactive Streamlit pour comparer 59 schemas de volumes finis sur des problemes de Riemann classiques et des solutions lisses, avec etude de convergence et analyse de Fourier.
+
+**Essayer en ligne** : https://euler-1d-solver.streamlit.app/
 
 ## Prerequis
 
