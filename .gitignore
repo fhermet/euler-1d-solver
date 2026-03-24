@@ -1,0 +1,9 @@
+app_env/
+__pycache__/
+*.pyc
+.cache/
+.config/
+.streamlit/secrets.toml
+everything-claude-code/
+docs/superpowers/
+CLAUDE.md
