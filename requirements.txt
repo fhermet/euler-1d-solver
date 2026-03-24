@@ -2,4 +2,4 @@ numpy
 pandas
 matplotlib
 plotly
-streamlit
+streamlit>=1.45.0
