@@ -19,7 +19,7 @@ FLUX_LABELS = {
     "hll": "HLL",
     "hllc": "HLLC",
     "roe": "Roe",
-    "roe-nc": "Roe (sans correction)",
+    "roe-nc": "Roe (no correction)",
     "godunov": "Godunov",
     "ausm+": "AUSM+",
     "ausm+-up": "AUSM+-up",
@@ -30,31 +30,31 @@ FLUX_LABELS = {
 COMPOSABLE_FLUX = {"rusanov", "hll", "hllc", "roe", "roe-nc", "godunov", "ausm+", "ausm+-up"}
 
 RECONSTRUCTIONS = {
-    "none": "Aucune",
-    "muscl": "MUSCL (ordre 2)",
-    "eno2": "ENO2 (ordre 2)",
-    "weno3": "WENO3-JS (ordre 3)",
-    "wenoz3": "WENO3-Z (ordre 3)",
-    "weno5": "WENO5-JS (ordre 5)",
-    "wenoz5": "WENO5-Z (ordre 5)",
+    "none": "None",
+    "muscl": "MUSCL (order 2)",
+    "eno2": "ENO2 (order 2)",
+    "weno3": "WENO3-JS (order 3)",
+    "wenoz3": "WENO3-Z (order 3)",
+    "weno5": "WENO5-JS (order 5)",
+    "wenoz5": "WENO5-Z (order 5)",
 }
 
 RECON_ROWS = {
-    "none": "Constante (ordre 1)",
-    "muscl": "MUSCL (ordre 2)",
-    "eno2": "ENO2 (ordre 2)",
-    "weno3": "WENO3-JS (ordre 3)",
-    "wenoz3": "WENO3-Z (ordre 3)",
-    "weno5": "WENO5-JS (ordre 5)",
-    "wenoz5": "WENO5-Z (ordre 5)",
+    "none": "Constant (order 1)",
+    "muscl": "MUSCL (order 2)",
+    "eno2": "ENO2 (order 2)",
+    "weno3": "WENO3-JS (order 3)",
+    "wenoz3": "WENO3-Z (order 3)",
+    "weno5": "WENO5-JS (order 5)",
+    "wenoz5": "WENO5-Z (order 5)",
 }
 
 COMPOSABLE_LIST = [f for f in ALL_FLUX if f in COMPOSABLE_FLUX]
 
 CENTERED_SCHEMES = {
-    "lax-friedrichs": "Lax-Friedrichs (ordre 1)",
-    "lax-wendroff": "Lax-Wendroff (ordre 2)",
-    "jst": "JST (ordre 2)",
+    "lax-friedrichs": "Lax-Friedrichs (order 1)",
+    "lax-wendroff": "Lax-Wendroff (order 2)",
+    "jst": "JST (order 2)",
 }
 
 RK_OPTIONS = ["Auto", "RK1", "RK2", "RK3", "RK4", "RK5"]
@@ -195,11 +195,11 @@ def scheme_selector_multi(key_prefix: str) -> list[tuple[str, str | None, str]]:
     muscl_schemes: list[tuple[str, str, str]] = []
     if muscl_flux:
         st.markdown(
-            f"**Limiteurs MUSCL** (appliques a {', '.join(FLUX_LABELS[f] for f in muscl_flux)})"
+            f"**MUSCL limiters** (applied to {', '.join(FLUX_LABELS[f] for f in muscl_flux)})"
         )
         lim_rows = []
         for lim_name in available_limiters():
-            row = {"Limiteur": lim_name}
+            row = {"Limiter": lim_name}
             for flux in muscl_flux:
                 row[FLUX_LABELS[flux]] = (lim_name == "van-leer")
             lim_rows.append(row)
@@ -215,8 +215,8 @@ def scheme_selector_multi(key_prefix: str) -> list[tuple[str, str | None, str]]:
         edited_lim = st.data_editor(
             lim_df,
             column_config={
-                "Limiteur": st.column_config.TextColumn(
-                    "Limiteur", disabled=True, width="small",
+                "Limiter": st.column_config.TextColumn(
+                    "Limiter", disabled=True, width="small",
                 ),
                 **lim_col_config,
             },
@@ -234,7 +234,7 @@ def scheme_selector_multi(key_prefix: str) -> list[tuple[str, str | None, str]]:
 
     # Centered schemes
     centered = st.multiselect(
-        "Schemas centres",
+        "Centered schemes",
         list(CENTERED_SCHEMES.keys()),
         format_func=lambda x: CENTERED_SCHEMES[x],
         key=f"{key_prefix}_centered",
@@ -243,14 +243,14 @@ def scheme_selector_multi(key_prefix: str) -> list[tuple[str, str | None, str]]:
         used_recons.add("_centered")
 
     # --- Time integrator table ---
-    st.markdown("**Integration temporelle**")
+    st.markdown("**Time integration**")
     rk_rows = []
     rk_recon_order: list[str] = []
     for rk_key in list(RECON_ROWS.keys()) + ["_centered"]:
         if rk_key not in used_recons:
             continue
         rk_recon_order.append(rk_key)
-        label = RECON_ROWS[rk_key] if rk_key != "_centered" else "Schemas centres"
+        label = RECON_ROWS[rk_key] if rk_key != "_centered" else "Centered schemes"
         rk_rows.append({"Reconstruction": label, "RK": _RK_DEFAULTS[rk_key]})
 
     if rk_rows:
@@ -262,7 +262,7 @@ def scheme_selector_multi(key_prefix: str) -> list[tuple[str, str | None, str]]:
                     "Reconstruction", disabled=True, width="medium",
                 ),
                 "RK": st.column_config.SelectboxColumn(
-                    "Integration temporelle",
+                    "Time integration",
                     options=RK_OPTIONS,
                     width="small",
                 ),
@@ -293,7 +293,7 @@ def scheme_selector_multi(key_prefix: str) -> list[tuple[str, str | None, str]]:
             s = get_scheme(key, **({"limiter": lim} if lim else {}))
             rk_label = f" [{ti}]" if ti != "Auto" else ""
             names.append(f"{s.name}{rk_label}")
-        st.caption("**" + str(len(result)) + " schema(s)** : " + " · ".join(names))
+        st.caption("**" + str(len(result)) + " scheme(s)**: " + " · ".join(names))
 
     return result
 
@@ -306,7 +306,7 @@ def scheme_selector_single(key_prefix: str) -> tuple[str, str | None, str]:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         flux = st.selectbox(
-            "Flux numerique",
+            "Numerical flux",
             ALL_FLUX,
             index=3,  # hllc
             format_func=lambda x: FLUX_LABELS[x],
@@ -323,7 +323,7 @@ def scheme_selector_single(key_prefix: str) -> tuple[str, str | None, str]:
         else:
             st.selectbox(
                 "Reconstruction",
-                ["Aucune"],
+                ["None"],
                 key=f"{key_prefix}_recon",
                 disabled=True,
             )
@@ -332,13 +332,13 @@ def scheme_selector_single(key_prefix: str) -> tuple[str, str | None, str]:
     if recon == "muscl":
         with col3:
             limiter = st.selectbox(
-                "Limiteur",
+                "Limiter",
                 available_limiters(),
                 key=f"{key_prefix}_lim",
             )
     with col4:
         ti = st.selectbox(
-            "Integration temporelle",
+            "Time integration",
             RK_OPTIONS,
             index=0,
             key=f"{key_prefix}_rk",

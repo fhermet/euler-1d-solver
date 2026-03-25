@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interface graphique Streamlit pour le solveur Euler 1D."""
+"""Streamlit GUI for the 1D Euler solver."""
 
 from __future__ import annotations
 
@@ -55,8 +55,8 @@ TEST_CASES = {
     "Sod shock tube": sod_shock_tube,
     "Lax": lax_test,
     "Double rarefaction": double_rarefaction,
-    "Contact stationnaire": stationary_contact,
-    "Quasi-vide": near_vacuum,
+    "Stationary contact": stationary_contact,
+    "Near vacuum": near_vacuum,
     "Two shocks (Toro 4)": two_shocks,
     "Shu-Osher": shu_osher,
     "Entropy wave": entropy_wave,
@@ -69,129 +69,128 @@ SMOOTH_CASES = {"Entropy wave", "Acoustic wave"}
 
 
 
-
 TEST_CASE_INFO = {
     "Sod shock tube": {
         "description": (
-            "Probleme de Riemann classique avec une discontinuite initiale de pression "
-            "et de densite a $x = 0.5$. Etat gauche : $(\\rho, u, p) = (1, 0, 1)$, "
-            "etat droit : $(\\rho, u, p) = (0.125, 0, 0.1)$. "
-            "Ce cas est le test de reference pour valider un solveur de Riemann."
+            "Classical Riemann problem with an initial pressure and density discontinuity "
+            "at $x = 0.5$. Left state: $(\\rho, u, p) = (1, 0, 1)$, "
+            "right state: $(\\rho, u, p) = (0.125, 0, 0.1)$. "
+            "This is the standard benchmark for validating a Riemann solver."
         ),
         "structure": (
-            "**Structure de la solution :** onde de detente a gauche, "
-            "discontinuite de contact au centre, onde de choc a droite."
+            "**Solution structure:** rarefaction wave on the left, "
+            "contact discontinuity in the center, shock wave on the right."
         ),
     },
     "Lax": {
         "description": (
-            "Probleme de Riemann plus severe avec une vitesse non nulle a gauche. "
-            "Etat gauche : $(\\rho, u, p) = (0.445, 0.698, 3.528)$, "
-            "etat droit : $(\\rho, u, p) = (0.5, 0, 0.571)$. "
-            "Teste la robustesse des schemas sur des gradients plus raides."
+            "More severe Riemann problem with a non-zero left velocity. "
+            "Left state: $(\\rho, u, p) = (0.445, 0.698, 3.528)$, "
+            "right state: $(\\rho, u, p) = (0.5, 0, 0.571)$. "
+            "Tests scheme robustness on steeper gradients."
         ),
         "structure": (
-            "**Structure de la solution :** onde de detente a gauche, "
-            "discontinuite de contact, onde de choc a droite. "
-            "Les ondes sont plus intenses que dans le cas Sod."
+            "**Solution structure:** rarefaction wave on the left, "
+            "contact discontinuity, shock wave on the right. "
+            "Waves are stronger than in the Sod case."
         ),
     },
     "Double rarefaction": {
         "description": (
-            "Vitesses initiales symetriques et opposees : le fluide s'ecarte du centre. "
-            "Etat gauche : $(\\rho, u, p) = (1, -2, 0.4)$, "
-            "etat droit : $(\\rho, u, p) = (1, 2, 0.4)$. "
-            "Teste la capacite du schema a gerer les zones de quasi-vide (basse densite/pression au centre)."
+            "Symmetric opposing initial velocities: the fluid moves away from the center. "
+            "Left state: $(\\rho, u, p) = (1, -2, 0.4)$, "
+            "right state: $(\\rho, u, p) = (1, 2, 0.4)$. "
+            "Tests the scheme's ability to handle near-vacuum zones (low density/pressure at the center)."
         ),
         "structure": (
-            "**Structure de la solution :** deux ondes de detente s'eloignant "
-            "l'une de l'autre, avec une zone de basse densite/pression au centre."
+            "**Solution structure:** two rarefaction waves moving apart, "
+            "with a low-density/pressure zone at the center."
         ),
     },
-    "Contact stationnaire": {
+    "Stationary contact": {
         "description": (
-            "Discontinuite de contact immobile : seule la densite varie. "
-            "Etat gauche : $(\\rho, u, p) = (1, 0, 1)$, "
-            "etat droit : $(\\rho, u, p) = (0.125, 0, 1)$. "
-            "La solution exacte est stationnaire : tout etalement du profil de densite "
-            "est purement du a la diffusion numerique du schema."
+            "Stationary contact discontinuity: only density varies. "
+            "Left state: $(\\rho, u, p) = (1, 0, 1)$, "
+            "right state: $(\\rho, u, p) = (0.125, 0, 1)$. "
+            "The exact solution is stationary: any smearing of the density profile "
+            "is purely due to the scheme's numerical diffusion."
         ),
         "structure": (
-            "**Structure de la solution :** une seule discontinuite de contact "
-            "immobile a $x = 0.5$. Pas de choc, pas de detente. "
-            "Les schemas resolvant l'onde de contact (HLLC, Roe, Godunov) "
-            "n'introduisent aucune diffusion. HLL et Rusanov etalent le contact."
+            "**Solution structure:** a single stationary contact discontinuity "
+            "at $x = 0.5$. No shock, no rarefaction. "
+            "Contact-resolving schemes (HLLC, Roe, Godunov) introduce no diffusion. "
+            "HLL and Rusanov smear the contact."
         ),
     },
-    "Quasi-vide": {
+    "Near vacuum": {
         "description": (
-            "Double detente extreme proche de la limite de formation du vide. "
-            "Etat gauche : $(\\rho, u, p) = (1, -3.5, 0.4)$, "
-            "etat droit : $(\\rho, u, p) = (1, 3.5, 0.4)$. "
-            "Les vitesses sont a 93% du seuil de vide : la pression au centre "
-            "atteint $p^* \\sim 10^{-13}$, testant la preservation de positivite des schemas."
+            "Extreme double rarefaction close to the vacuum formation limit. "
+            "Left state: $(\\rho, u, p) = (1, -3.5, 0.4)$, "
+            "right state: $(\\rho, u, p) = (1, 3.5, 0.4)$. "
+            "Velocities are at 93% of the vacuum threshold: the central pressure "
+            "reaches $p^* \\sim 10^{-13}$, testing positivity preservation of the schemes."
         ),
         "structure": (
-            "**Structure de la solution :** deux ondes de detente symetriques "
-            "avec une zone de densite/pression quasi nulle au centre. "
-            "Version extreme de la double detente ($u = \\pm 3.5$ au lieu de $\\pm 2$)."
+            "**Solution structure:** two symmetric rarefaction waves "
+            "with a near-zero density/pressure zone at the center. "
+            "Extreme version of double rarefaction ($u = \\pm 3.5$ instead of $\\pm 2$)."
         ),
     },
     "Two shocks (Toro 4)": {
         "description": (
-            "Collision de deux chocs forts (Toro test 4). "
-            "Etat gauche : $(\\rho, u, p) = (5.99924, 19.5975, 460.894)$, "
-            "etat droit : $(\\rho, u, p) = (5.99242, -6.19633, 46.0950)$. "
-            "Les vitesses convergentes creent une zone de tres haute pression ($p^* \\approx 1700$) au centre."
+            "Collision of two strong shocks (Toro test 4). "
+            "Left state: $(\\rho, u, p) = (5.99924, 19.5975, 460.894)$, "
+            "right state: $(\\rho, u, p) = (5.99242, -6.19633, 46.0950)$. "
+            "Converging velocities create a very high-pressure zone ($p^* \\approx 1700$) at the center."
         ),
         "structure": (
-            "**Structure de la solution :** choc a gauche, "
-            "discontinuite de contact au centre, choc a droite. "
-            "C'est le symetrique de la double detente : compression au lieu d'expansion."
+            "**Solution structure:** shock on the left, "
+            "contact discontinuity in the center, shock on the right. "
+            "This is the symmetric counterpart of double rarefaction: compression instead of expansion."
         ),
     },
     "Shu-Osher": {
         "description": (
-            "Interaction choc/onde entropique. Un choc Mach 3 se propage dans un milieu "
-            "a densite sinusoidale : $\\rho_R = 1 + 0.2\\sin(5x)$. "
-            "Derriere le choc, des oscillations physiques de petite echelle apparaissent. "
-            "La solution de reference est calculee a haute resolution (WENO5-Z, 2000 cellules)."
+            "Shock/entropy-wave interaction. A Mach 3 shock propagates into a medium "
+            "with sinusoidal density: $\\rho_R = 1 + 0.2\\sin(5x)$. "
+            "Behind the shock, physical small-scale oscillations appear. "
+            "The reference solution is computed at high resolution (WENO5-Z, 2000 cells)."
         ),
         "structure": (
-            "**Structure de la solution :** choc principal a droite, "
-            "suivi d'une zone complexe d'oscillations haute frequence. "
-            "MUSCL lisse ces oscillations, WENO5 les capture fidelement. "
-            "C'est le meilleur cas pour montrer l'apport des schemas d'ordre eleve."
+            "**Solution structure:** main shock on the right, "
+            "followed by a complex zone of high-frequency oscillations. "
+            "MUSCL smooths out these oscillations, WENO5 captures them faithfully. "
+            "This is the best case to demonstrate the benefit of high-order schemes."
         ),
     },
     "Entropy wave": {
         "description": (
-            "Perturbation sinusoidale de densite advectee a vitesse constante $u_0 = 1$. "
-            "La pression est uniforme et la vitesse constante : seule la densite varie. "
-            "Solution lisse, ideale pour verifier l'ordre de convergence des schemas."
+            "Sinusoidal density perturbation advected at constant velocity $u_0 = 1$. "
+            "Pressure is uniform and velocity is constant: only density varies. "
+            "Smooth solution, ideal for verifying scheme convergence order."
         ),
         "structure": (
-            "**Structure de la solution :** la perturbation de densite est simplement "
-            "translatee sans deformation. Les champs $u$ et $p$ restent constants."
+            "**Solution structure:** the density perturbation is simply "
+            "translated without deformation. The $u$ and $p$ fields remain constant."
         ),
     },
     "Acoustic wave": {
         "description": (
-            "Petite perturbation isentropique ($\\epsilon = 10^{-4}$) se propageant "
-            "a la vitesse du son. Solution lisse linearisee, valide pour les petites amplitudes. "
-            "Teste la convergence sur les champs genuinement non-lineaires ($\\rho$, $u$, $p$ varient tous)."
+            "Small isentropic perturbation ($\\epsilon = 10^{-4}$) propagating "
+            "at the speed of sound. Smooth linearized solution, valid for small amplitudes. "
+            "Tests convergence on genuinely nonlinear fields ($\\rho$, $u$, $p$ all vary)."
         ),
         "structure": (
-            "**Structure de la solution :** onde acoustique se propageant vers la droite "
-            "a la vitesse $u_0 + c_0$. Tous les champs presentent une perturbation sinusoidale."
+            "**Solution structure:** acoustic wave propagating to the right "
+            "at speed $u_0 + c_0$. All fields exhibit a sinusoidal perturbation."
         ),
     },
 }
 
 VAR_LABELS = {
-    "rho": "ρ (densité)",
-    "u": "u (vitesse)",
-    "p": "p (pression)",
+    "rho": "ρ (density)",
+    "u": "u (velocity)",
+    "p": "p (pressure)",
 }
 VAR_LATEX = {"rho": "ρ", "u": "u", "p": "p"}
 
@@ -241,7 +240,7 @@ def _make_initial_conditions_figure(
     fig.update_layout(
         **THESIS_LAYOUT,
         title=dict(
-            text=f"Conditions initiales — {test_case_name}",
+            text=f"Initial conditions — {test_case_name}",
             font=dict(family="STIX Two Text, serif", size=17), x=0.0, xanchor="left",
         ),
         height=350, width=1200,
@@ -396,7 +395,7 @@ def _make_profile_figure(
         fig.add_trace(go.Scatter(
             x=exact["x"], y=exact[var], mode="lines",
             line=dict(color="black", width=2),
-            name="Exacte", legendgroup="Exacte", showlegend=showlegend,
+            name="Exact", legendgroup="Exact", showlegend=showlegend,
         ), row=1, col=j)
         for i, (name, df) in enumerate(dfs):
             fig.add_trace(go.Scatter(
@@ -433,7 +432,7 @@ def _make_convergence_figure(
     """Create 3 log-log subplots for L1, L2, Linf convergence."""
     fig = make_subplots(
         rows=1, cols=3,
-        subplot_titles=[f"Erreur {NORM_LATEX[n]}" for n in NORMS],
+        subplot_titles=[f"Error {NORM_LATEX[n]}" for n in NORMS],
         horizontal_spacing=0.08,
     )
 
@@ -488,7 +487,7 @@ def _make_convergence_figure(
             row=1, col=col_idx,
         )
         fig.update_yaxes(
-            thesis_axis(title_text="Erreur", type="log", exponentformat="power"),
+            thesis_axis(title_text="Error", type="log", exponentformat="power"),
             row=1, col=col_idx,
         )
 
@@ -509,20 +508,20 @@ def _make_convergence_figure(
 # Sidebar
 # ---------------------------------------------------------------------------
 
-st.set_page_config(page_title="Solveur Euler 1D", layout="wide")
-st.title("Solveur Euler 1D -- Interface interactive")
+st.set_page_config(page_title="1D Euler Solver", layout="wide")
+st.title("1D Euler Solver — Interactive interface")
 
 with st.sidebar:
     st.header("Configuration")
-    test_case_name = st.selectbox("Cas test", list(TEST_CASES.keys()))
+    test_case_name = st.selectbox("Test case", list(TEST_CASES.keys()))
     is_smooth = test_case_name in SMOOTH_CASES
 
-    with st.expander("Parametres avances"):
-        n_cells = st.slider("Nombre de cellules", 50, 2000, 200, step=10)
+    with st.expander("Advanced parameters"):
+        n_cells = st.slider("Number of cells", 50, 2000, 200, step=10)
         cfl = st.slider("CFL", 0.1, 1.0, 0.9, step=0.05)
         if is_smooth:
             gamma = 1.4
-            st.info("Gamma fixe a 1.4 pour les cas lisses")
+            st.info("Gamma fixed at 1.4 for smooth cases")
         else:
             gamma = st.slider("Gamma", 1.1, 2.0, 1.4, step=0.05)
 
@@ -531,7 +530,7 @@ with st.sidebar:
 # Test case description
 # ---------------------------------------------------------------------------
 
-with st.expander(f"Description du cas : {test_case_name}", expanded=False):
+with st.expander(f"Test case description: {test_case_name}", expanded=False):
     info = TEST_CASE_INFO[test_case_name]
     st.markdown(info["description"])
     st.markdown(info["structure"])
@@ -543,18 +542,18 @@ with st.expander(f"Description du cas : {test_case_name}", expanded=False):
 # ---------------------------------------------------------------------------
 
 tab1, tab4 = st.tabs([
-    "Ordre de convergence",
-    "Evolution temporelle",
+    "Convergence order",
+    "Time evolution",
 ])
 
 
 # ---- Tab 1: Scheme comparison ----
 with tab1:
-    st.subheader("Comparaison de schemas")
+    st.subheader("Scheme comparison")
     selected = scheme_selector_multi("tab1")
 
     if selected:
-        with st.spinner("Simulation en cours..."):
+        with st.spinner("Running simulation..."):
             dfs_list = []
             exact = cached_exact(test_case_name, n_cells, cfl, gamma)
 
@@ -563,7 +562,7 @@ with tab1:
                     test_case_name, n_cells, cfl, gamma, sname, limiter, 1, ti,
                 )
                 if not snapshots:
-                    st.warning(f"**{display_name}** : simulation divergente (instabilite numerique).")
+                    st.warning(f"**{display_name}**: divergent simulation (numerical instability).")
                     continue
                 U = np.array(snapshots[-1])
                 rho, u, p = conservative_to_primitive(U, gamma)
@@ -582,7 +581,7 @@ with tab1:
         col_a, col_b = st.columns(2)
         with col_a:
             resolutions_str = st.text_input(
-                "Resolutions (separees par des espaces)",
+                "Resolutions (space-separated)",
                 "50 100 200 400 800",
                 key="tab1_res",
             )
@@ -592,11 +591,11 @@ with tab1:
         try:
             n_cells_list = tuple(sorted(int(x) for x in resolutions_str.split()))
         except ValueError:
-            st.error("Resolutions invalides. Entrez des entiers separes par des espaces.")
+            st.error("Invalid resolutions. Enter space-separated integers.")
             n_cells_list = ()
 
         if n_cells_list:
-            with st.spinner("Convergence en cours..."):
+            with st.spinner("Computing convergence..."):
                 conv_dfs = []
                 order_rows = []
                 for sname, limiter, ti in selected:
@@ -609,10 +608,10 @@ with tab1:
                     var_data = df[df["variable"] == conv_var]
                     if len(var_data) >= 2:
                         dx_vals = var_data["dx"].values
-                        row = {"Schema": display_name}
+                        row = {"Scheme": display_name}
                         for norm in NORMS:
                             err = var_data[norm].values
-                            row[f"Ordre ({norm})"] = f"{estimate_order(dx_vals, err):.2f}"
+                            row[f"Order ({norm})"] = f"{estimate_order(dx_vals, err):.2f}"
                         order_rows.append(row)
 
                 fig = _make_convergence_figure(
@@ -621,19 +620,19 @@ with tab1:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                st.subheader("Ordres de convergence estimes")
+                st.subheader("Estimated convergence orders")
                 st.dataframe(pd.DataFrame(order_rows), width="stretch", hide_index=True)
     else:
-        st.info("Selectionnez au moins un flux et une reconstruction.")
+        st.info("Select at least one flux and one reconstruction.")
 
 
 
 # ---- Tab 4: Temporal animation ----
 with tab4:
-    st.subheader("Animation temporelle")
+    st.subheader("Time animation")
 
     anim_scheme, anim_limiter, anim_ti = scheme_selector_single("tab4")
-    n_snapshots = st.slider("Nombre de snapshots", 10, 200, 50, key="tab4_snaps")
+    n_snapshots = st.slider("Number of snapshots", 10, 200, 50, key="tab4_snaps")
 
     with st.spinner("Simulation..."):
         snapshots, snap_times, wt, dn = cached_simulate(
@@ -642,7 +641,7 @@ with tab4:
         )
 
     if not snapshots:
-        st.error(f"**{dn}** : simulation divergente (instabilite numerique).")
+        st.error(f"**{dn}**: divergent simulation (numerical instability).")
         st.stop()
 
     config = _build_config(test_case_name, n_cells, cfl, gamma)
@@ -652,7 +651,7 @@ with tab4:
     if len(snap_times) > 1:
         time_options = [f"{t:.6f}" for t in snap_times]
         selected_time_str = st.select_slider(
-            "Temps",
+            "Time",
             options=time_options,
             value=time_options[-1],
             key="tab4_time",
@@ -663,7 +662,7 @@ with tab4:
         time_idx = 0
         selected_time = snap_times[0] if snap_times else t_final
 
-    st.write(f"**Schema :** {dn} | **t =** {selected_time:.6f} / {t_final:.6f} | **Temps de calcul :** {wt:.4f} s")
+    st.write(f"**Scheme:** {dn} | **t =** {selected_time:.6f} / {t_final:.6f} | **Wall time:** {wt:.4f} s")
 
     # Plot snapshot vs exact at that time
     U = np.array(snapshots[time_idx])
@@ -688,7 +687,7 @@ with tab4:
         fig.add_trace(go.Scatter(
             x=exact_t["x"], y=exact_t[var], mode="lines",
             line=dict(color="black", width=2),
-            name="Exacte", legendgroup="Exacte", showlegend=showlegend,
+            name="Exact", legendgroup="Exact", showlegend=showlegend,
         ), row=1, col=j)
         fig.add_trace(go.Scatter(
             x=x, y=num_data, mode="lines+markers",
@@ -703,7 +702,7 @@ with tab4:
     fig.update_layout(
         **THESIS_LAYOUT,
         title=dict(
-            text=f"{test_case_name} — {dn} à t={selected_time:.4f}",
+            text=f"{test_case_name} — {dn} at t={selected_time:.4f}",
             font=dict(family="STIX Two Text, serif", size=17), x=0.0, xanchor="left",
         ),
         height=450, width=1200,
@@ -714,4 +713,3 @@ with tab4:
     )
     fig.update_annotations(font=dict(family="STIX Two Text, serif", size=15), yshift=15)
     st.plotly_chart(fig, use_container_width=True)
-

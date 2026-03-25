@@ -1,4 +1,4 @@
-"""Analyse de dissipation et dispersion (Fourier)."""
+"""Dissipation and dispersion analysis (Fourier)."""
 
 from __future__ import annotations
 
@@ -17,13 +17,13 @@ from ui_common import (
     thesis_axis,
 )
 
-st.set_page_config(page_title="Analyse de Fourier", layout="wide")
-st.title("Analyse de Fourier")
+st.set_page_config(page_title="Fourier Analysis", layout="wide")
+st.title("Fourier Analysis")
 
 st.markdown(
-    "Analyse de Fourier linearisee : on mesure le facteur d'amplification $G(\\theta)$ "
-    "de chaque schema sur un mode propre du systeme d'Euler linearise. "
-    "$|G| < 1$ = dissipation, $\\phi_{num}/\\phi_{exact} \\neq 1$ = erreur de dispersion."
+    "Linearized Fourier analysis: we measure the amplification factor $G(\\theta)$ "
+    "of each scheme on an eigenmode of the linearized Euler system. "
+    "$|G| < 1$ = dissipation, $\\phi_{num}/\\phi_{exact} \\neq 1$ = dispersion error."
 )
 
 selected = scheme_selector_multi("fourier")
@@ -33,14 +33,16 @@ with col1:
     fourier_cfl = st.slider("CFL", 0.1, 0.9, 0.5, step=0.05, key="fourier_cfl")
 with col2:
     wave_type = st.selectbox(
-        "Type d'onde",
+        "Wave type",
         ["entropie", "acoustique"],
-        help="Entropie : advection pure (vitesse u). Acoustique : onde de pression (vitesse u+c).",
+        format_func=lambda x: {"entropie": "Entropy", "acoustique": "Acoustic"}[x],
+        help="Entropy: pure advection (velocity u). Acoustic: pressure wave (velocity u+c).",
         key="fourier_wave",
     )
 
 if selected:
-    with st.spinner("Analyse de Fourier..."):
+    wave_label = {"entropie": "entropy", "acoustique": "acoustic"}[wave_type]
+    with st.spinner("Fourier analysis..."):
         fig = make_subplots(
             rows=1, cols=2,
             subplot_titles=["Dissipation |G(θ)|", "Dispersion φ/φ_exact"],
@@ -81,7 +83,7 @@ if selected:
         fig.update_layout(
             **THESIS_LAYOUT,
             title=dict(
-                text=f"Analyse de Fourier — onde {wave_type} — CFL = {fourier_cfl}",
+                text=f"Fourier analysis — {wave_label} wave — CFL = {fourier_cfl}",
                 font=dict(family="STIX Two Text, serif", size=17),
                 x=0.0, xanchor="left",
             ),
@@ -92,9 +94,9 @@ if selected:
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown(
-            "**Lecture :** Un schema ideal aurait $|G| = 1$ (pas de dissipation) et "
-            "$\\phi/\\phi_{exact} = 1$ (pas d'erreur de dispersion) pour tout $\\theta$. "
-            "En pratique, les schemas dissipatifs (Lax-Friedrichs, Rusanov) amortissent "
-            "les hautes frequences, tandis que les schemas peu dissipatifs (Lax-Wendroff, JST) "
-            "introduisent des erreurs de dispersion qui causent les oscillations pres des chocs."
+            "**Reading guide:** An ideal scheme would have $|G| = 1$ (no dissipation) and "
+            "$\\phi/\\phi_{exact} = 1$ (no dispersion error) for all $\\theta$. "
+            "In practice, dissipative schemes (Lax-Friedrichs, Rusanov) damp "
+            "high frequencies, while low-dissipation schemes (Lax-Wendroff, JST) "
+            "introduce dispersion errors that cause oscillations near shocks."
         )
