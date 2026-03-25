@@ -18,13 +18,13 @@ pip install -r requirements.txt
 ## Getting started
 
 ```bash
-streamlit run Solveur_Euler_1D.py
+streamlit run Euler_1D_Solver.py
 ```
 
 ## Code architecture
 
 ```
-Solveur_Euler_1D.py    Streamlit entry point (main page)
+Euler_1D_Solver.py     Streamlit entry point (main page)
 ui_common.py           Plotly styling, constants, shared scheme selectors
 pages/
 └── 2_Fourier_Analysis.py   Streamlit page: numerical dissipation and dispersion
