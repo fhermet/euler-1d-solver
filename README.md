@@ -1,12 +1,12 @@
-# Solveur Euler 1D
+# 1D Euler Solver
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://euler-1d-solver.streamlit.app/)
 
-Solveur modulaire pour les equations d'Euler 1D instationnaires (gaz parfait), ecrit en Python/NumPy. Interface interactive Streamlit pour comparer 59 schemas de volumes finis sur des problemes de Riemann classiques et des solutions lisses, avec etude de convergence et analyse de Fourier.
+Modular solver for the unsteady 1D Euler equations (ideal gas), written in Python/NumPy. Interactive Streamlit interface to compare 59 finite volume schemes on classical Riemann problems and smooth solutions, with mesh convergence studies and Fourier analysis.
 
-**Essayer en ligne** : https://euler-1d-solver.streamlit.app/
+**Try it online**: https://euler-1d-solver.streamlit.app/
 
-## Prerequis
+## Prerequisites
 
 - Python >= 3.10
 - NumPy, Pandas, Matplotlib, Plotly, Streamlit
@@ -15,110 +15,110 @@ Solveur modulaire pour les equations d'Euler 1D instationnaires (gaz parfait), e
 pip install -r requirements.txt
 ```
 
-## Lancement
+## Getting started
 
 ```bash
 streamlit run Solveur_Euler_1D.py
 ```
 
-## Architecture du code
+## Code architecture
 
 ```
-Solveur_Euler_1D.py    Point d'entree Streamlit (page principale)
-ui_common.py           Style Plotly, constantes, selecteurs de schemas partages
+Solveur_Euler_1D.py    Streamlit entry point (main page)
+ui_common.py           Plotly styling, constants, shared scheme selectors
 pages/
-└── 2_Analyse_de_Fourier.py   Page Streamlit : dissipation et dispersion numerique
+└── 2_Fourier_Analysis.py   Streamlit page: numerical dissipation and dispersion
 
 euler1d/
-├── config.py          Dataclasses de configuration (gaz, maillage, temps, probleme)
-├── physics.py         EOS, conversions primitif/conservatif, flux physique
-├── riemann.py         Solveur de Riemann exact (vectorise numpy)
-├── boundary.py        Conditions aux limites (cellules fantomes)
-├── solver.py          Boucle en temps (RK1 a RK5)
-├── results.py         Solution exacte, normes d'erreur, convergence
-├── fourier_analysis.py  Analyse de dissipation/dispersion numerique
-├── test_cases.py      Cas tests predefinis
+├── config.py          Configuration dataclasses (gas, mesh, time, problem)
+├── physics.py         EOS, primitive/conservative conversions, physical flux
+├── riemann.py         Exact Riemann solver (vectorized NumPy)
+├── boundary.py        Boundary conditions (ghost cells)
+├── solver.py          Time-stepping loop (RK1 to RK5)
+├── results.py         Exact solution, error norms, convergence
+├── fourier_analysis.py  Numerical dissipation/dispersion analysis
+├── test_cases.py      Predefined test cases
 └── schemes/
-    ├── base.py              Classe abstraite NumericalScheme
+    ├── base.py              Abstract base class NumericalScheme
     ├── flux/
-    │   ├── rusanov.py         Rusanov (Lax-Friedrichs local)
-    │   ├── hll.py             HLL (2 ondes)
-    │   ├── hllc.py            HLLC (3 ondes)
-    │   ├── roe.py             Roe avec correction entropique
-    │   ├── godunov.py         Godunov (solveur exact)
-    │   ├── ausm_plus.py       AUSM+ et AUSM+-up
-    │   ├── lax_friedrichs.py  Lax-Friedrichs (centre)
-    │   ├── lax_wendroff.py    Lax-Wendroff (centre)
-    │   └── jst.py             JST (centre)
+    │   ├── rusanov.py         Rusanov (local Lax-Friedrichs)
+    │   ├── hll.py             HLL (2-wave)
+    │   ├── hllc.py            HLLC (3-wave)
+    │   ├── roe.py             Roe with entropy fix
+    │   ├── godunov.py         Godunov (exact solver)
+    │   ├── ausm_plus.py       AUSM+ and AUSM+-up
+    │   ├── lax_friedrichs.py  Lax-Friedrichs (centered)
+    │   ├── lax_wendroff.py    Lax-Wendroff (centered)
+    │   └── jst.py             JST (centered)
     └── reconstruction/
-        ├── limiters.py    Limiteurs de pente (minmod, van-leer, superbee, mc, van-albada)
-        ├── muscl.py       Reconstruction MUSCL (ordre 2)
-        ├── eno.py         Reconstruction ENO2 (ordre 2)
-        ├── weno3.py       WENO3 JS et Z (ordre 3)
-        └── weno5.py       WENO5 JS et Z (ordre 5)
+        ├── limiters.py    Slope limiters (minmod, van-leer, superbee, mc, van-albada)
+        ├── muscl.py       MUSCL reconstruction (order 2)
+        ├── eno.py         ENO2 reconstruction (order 2)
+        ├── weno3.py       WENO3 JS and Z (order 3)
+        └── weno5.py       WENO5 JS and Z (order 5)
 ```
 
-## Schemas disponibles
+## Available schemes
 
-### Flux numeriques (ordre 1)
+### Numerical fluxes (order 1)
 
-| Schema | Cle | Description |
+| Scheme | Key | Description |
 |---|---|---|
-| Lax-Friedrichs | `lax-friedrichs` | Dissipation globale, schema centre |
-| Rusanov | `rusanov` | Dissipation locale (Lax-Friedrichs local) |
-| HLL | `hll` | 2 ondes, pas de contact |
-| HLLC | `hllc` | 3 ondes, capture le contact |
-| Roe | `roe` | Linearisation + correction entropique |
-| Roe (sans correction) | `roe-nc` | Roe sans correction entropique |
-| Godunov | `godunov` | Solveur de Riemann exact |
-| AUSM+ | `ausm+` | Splitting Mach/pression |
-| AUSM+-up | `ausm+-up` | AUSM+ ameliore (bas Mach) |
-| Lax-Wendroff | `lax-wendroff` | Ordre 2 en temps et espace, schema centre |
-| JST | `jst` | Jameson-Schmidt-Turkel, schema centre |
+| Lax-Friedrichs | `lax-friedrichs` | Global dissipation, centered scheme |
+| Rusanov | `rusanov` | Local dissipation (local Lax-Friedrichs) |
+| HLL | `hll` | 2-wave, no contact resolution |
+| HLLC | `hllc` | 3-wave, captures the contact |
+| Roe | `roe` | Linearization + entropy fix |
+| Roe (no correction) | `roe-nc` | Roe without entropy fix |
+| Godunov | `godunov` | Exact Riemann solver |
+| AUSM+ | `ausm+` | Mach/pressure splitting |
+| AUSM+-up | `ausm+-up` | Improved AUSM+ (low Mach) |
+| Lax-Wendroff | `lax-wendroff` | 2nd order in time and space, centered scheme |
+| JST | `jst` | Jameson-Schmidt-Turkel, centered scheme |
 
-### Reconstructions d'ordre eleve
+### High-order reconstructions
 
-| Reconstruction | Cle | Ordre | Composable avec |
+| Reconstruction | Key | Order | Composable with |
 |---|---|---|---|
 | MUSCL | `muscl-{flux}` | 2 | Rusanov, HLL, HLLC, Roe, Roe-NC, Godunov, AUSM+, AUSM+-up |
-| ENO2 | `eno2-{flux}` | 2 | idem |
-| WENO3-JS | `weno3-{flux}` | 3 | idem |
-| WENO3-Z | `wenoz3-{flux}` | 3 | idem |
-| WENO5-JS | `weno5-{flux}` | 5 | idem |
-| WENO5-Z | `wenoz5-{flux}` | 5 | idem |
+| ENO2 | `eno2-{flux}` | 2 | same |
+| WENO3-JS | `weno3-{flux}` | 3 | same |
+| WENO3-Z | `wenoz3-{flux}` | 3 | same |
+| WENO5-JS | `weno5-{flux}` | 5 | same |
+| WENO5-Z | `wenoz5-{flux}` | 5 | same |
 
-8 flux composables x 6 reconstructions + 11 schemas autonomes = **59 schemas** au total.
+8 composable fluxes × 6 reconstructions + 11 standalone schemes = **59 schemes** total.
 
-Limiteurs MUSCL : `minmod`, `van-leer` (defaut), `superbee`, `mc`, `van-albada`.
+MUSCL limiters: `minmod`, `van-leer` (default), `superbee`, `mc`, `van-albada`.
 
-## Interface Streamlit
+## Streamlit interface
 
-### Page principale : Solveur Euler 1D
+### Main page: 1D Euler Solver
 
-| Onglet | Description |
+| Tab | Description |
 |---|---|
-| Ordre de convergence | Profils (rho, u, p) + solution exacte, erreurs L1/L2/Linf, convergence en maillage |
-| Evolution temporelle | Animation dans le temps avec slider, solution exacte a t arbitraire |
+| Convergence order | Profiles (ρ, u, p) + exact solution, L1/L2/L∞ errors, mesh convergence |
+| Time evolution | Time animation with slider, exact solution at arbitrary t |
 
-### Page : Analyse de Fourier
+### Page: Fourier Analysis
 
-Courbes de dissipation |G(theta)| et dispersion phi/phi_exact pour chaque schema, obtenues par linearisation autour d'un etat uniforme.
+Dissipation |G(θ)| and dispersion φ/φ_exact curves for each scheme, obtained by linearization around a uniform state.
 
-## Cas tests disponibles
+## Available test cases
 
-| Cas | Fonction | Type | Description |
+| Case | Function | Type | Description |
 |---|---|---|---|
-| Sod | `sod_shock_tube()` | Riemann | Choc + contact + rarefaction |
-| Lax | `lax_test()` | Riemann | Plus severe que Sod |
-| Double rarefaction | `double_rarefaction()` | Riemann | Deux rarefactions, basse pression |
-| Contact stationnaire | `stationary_contact()` | Riemann | Contact immobile, mesure de diffusion |
-| Quasi-vide | `near_vacuum()` | Riemann | Double detente extreme (93% du seuil de vide) |
-| Deux chocs | `two_shocks()` | Riemann | Collision de chocs forts (Toro test 4) |
-| Shu-Osher | `shu_osher()` | Mixte | Choc Mach 3 dans densite sinusoidale |
-| Onde d'entropie | `entropy_wave()` | Lisse | Advection sinusoidale, verification d'ordre |
-| Onde acoustique | `acoustic_wave()` | Lisse | Perturbation isentropique, verification d'ordre |
+| Sod | `sod_shock_tube()` | Riemann | Shock + contact + rarefaction |
+| Lax | `lax_test()` | Riemann | More severe than Sod |
+| Double rarefaction | `double_rarefaction()` | Riemann | Two rarefactions, low pressure |
+| Stationary contact | `stationary_contact()` | Riemann | Stationary contact, diffusion measurement |
+| Near vacuum | `near_vacuum()` | Riemann | Extreme double rarefaction (93% of vacuum threshold) |
+| Two shocks | `two_shocks()` | Riemann | Strong shock collision (Toro test 4) |
+| Shu-Osher | `shu_osher()` | Mixed | Mach 3 shock in sinusoidal density |
+| Entropy wave | `entropy_wave()` | Smooth | Sinusoidal advection, order verification |
+| Acoustic wave | `acoustic_wave()` | Smooth | Isentropic perturbation, order verification |
 
-## Utilisation en tant que bibliotheque
+## Usage as a library
 
 ```python
 from euler1d.schemes import get_scheme
@@ -136,19 +136,19 @@ errors = compute_errors(result, exact)
 print(errors["rho"])  # {'L1': ..., 'L2': ..., 'Linf': ...}
 ```
 
-## Documentation theorique
+## Theoretical documentation
 
-La documentation mathematique detaillee est dans le dossier [`docs/`](docs/) :
+Detailed mathematical documentation is in the [`docs/`](docs/) folder:
 
-1. [Equations d'Euler 1D](docs/01_euler_equations.md)
-2. [Probleme de Riemann](docs/02_riemann_problem.md)
-3. [Methode des volumes finis](docs/03_finite_volume.md)
-4. [Schemas de flux](docs/04_flux_schemes.md)
-5. [Reconstructions d'ordre eleve](docs/05_reconstruction.md)
-6. [Integration temporelle](docs/06_time_integration.md)
-7. [Analyse de Fourier](docs/07_fourier_analysis.md)
-8. [Cas tests](docs/08_test_cases.md)
-9. [Bibliographie](docs/bibliography.md)
+1. [1D Euler equations](docs/01_euler_equations.md)
+2. [Riemann problem](docs/02_riemann_problem.md)
+3. [Finite volume method](docs/03_finite_volume.md)
+4. [Flux schemes](docs/04_flux_schemes.md)
+5. [High-order reconstructions](docs/05_reconstruction.md)
+6. [Time integration](docs/06_time_integration.md)
+7. [Fourier analysis](docs/07_fourier_analysis.md)
+8. [Test cases](docs/08_test_cases.md)
+9. [Bibliography](docs/bibliography.md)
 
 ## References
 
