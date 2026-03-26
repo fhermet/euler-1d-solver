@@ -81,10 +81,10 @@ $$
 ou de manière abrégée :
 
 $$
-{[}\!{[} \mathbf{F} {]}\!{]} = s \, {[}\!{[} \mathbf{U} {]}\!{]}
+[\kern-3.5mu[ \mathbf{F} ]\kern-3.5mu] = s \, [\kern-3.5mu[ \mathbf{U} ]\kern-3.5mu]
 $$
 
-où ${[}\!{[} Q {]}\!{]} = Q_{\text{après}} - Q_{\text{avant}}$ désigne le saut de la quantité $Q$ à travers le choc, et $s$ est la **vitesse du choc**.
+où $[\kern-3.5mu[ Q ]\kern-3.5mu] = Q_{\text{après}} - Q_{\text{avant}}$ désigne le saut de la quantité $Q$ à travers le choc, et $s$ est la **vitesse du choc**.
 
 **Interprétation physique.** Les relations de Rankine-Hugoniot expriment la conservation de la masse, de la quantité de mouvement et de l'énergie à travers la discontinuité. Le flux net sortant du choc (membre de gauche) est exactement compensé par la variation des quantités conservatives due au déplacement du choc (membre de droite).
 

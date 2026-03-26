@@ -313,10 +313,10 @@ Un choc est une **discontinuité** dans la solution. Il se forme lorsqu'une onde
 - le choc se propage à une vitesse $s$ déterminée par les **relations de Rankine-Hugoniot** :
 
 $$
-s{[}\!{[} \mathbf{U} {]}\!{]} = {[}\!{[} \mathbf{F}(\mathbf{U}) {]}\!{]}
+s[\kern-3.5mu[ \mathbf{U} ]\kern-3.5mu] = [\kern-3.5mu[ \mathbf{F}(\mathbf{U}) ]\kern-3.5mu]
 $$
 
-où ${[}\!{[} Q {]}\!{]} = Q_R - Q_L$ désigne le saut de la quantité $Q$ à travers la discontinuité.
+où $[\kern-3.5mu[ Q ]\kern-3.5mu] = Q_R - Q_L$ désigne le saut de la quantité $Q$ à travers la discontinuité.
 
 #### Onde de détente (raréfaction)
 
