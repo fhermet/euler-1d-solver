@@ -366,12 +366,12 @@ Le problème de Riemann est la résolution des équations d'Euler avec des **con
 ```
 
 - **UL** et **UR** : états gauche et droit (données initiales).
-- **U\*L** et **U\*R** : états intermédiaires. Ils partagent la **même pression** $p^{*}$ et la **même vitesse** $u^{*}$ (conditions de compatibilité à travers la discontinuité de contact). Ils diffèrent uniquement par leur densité.
+- **U\*L** et **U\*R** : états intermédiaires. Ils partagent la **même pression** $p^\ast$ et la **même vitesse** $u^\ast$ (conditions de compatibilité à travers la discontinuité de contact). Ils diffèrent uniquement par leur densité.
 - **Onde 1** ($\lambda_1$) : choc ou détente séparant UL de U\*L.
 - **Onde 2** ($\lambda_2$) : discontinuité de contact séparant U\*L de U\*R.
 - **Onde 3** ($\lambda_3$) : choc ou détente séparant U\*R de UR.
 
-La résolution du problème de Riemann consiste à trouver $(p^{*}, u^{*})$ puis à déterminer la nature (choc ou détente) de chaque onde acoustique. Ce problème est au coeur des schémas de type Godunov et de tous les solveurs de Riemann approchés (HLL, HLLC, Roe) présentés dans les chapitres suivants.
+La résolution du problème de Riemann consiste à trouver $(p^\ast, u^\ast)$ puis à déterminer la nature (choc ou détente) de chaque onde acoustique. Ce problème est au coeur des schémas de type Godunov et de tous les solveurs de Riemann approchés (HLL, HLLC, Roe) présentés dans les chapitres suivants.
 
 > **Implémentation** : le solveur de Riemann exact est dans `euler1d/riemann.py`. Les cas test (Sod, Lax, double détente) sont dans `euler1d/test_cases.py`.
 
