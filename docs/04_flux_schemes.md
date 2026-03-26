@@ -58,13 +58,13 @@ L'évaluation de $\mathbf{U}^{\text{Riemann}}(0)$ nécessite de déterminer dans
 
 Le flux est simplement le flux physique évalué à l'état solution en $\xi = 0$ :
 
-$$\hat{\mathbf{F}}_{i+1/2} = \begin{pmatrix} \rho^* u^* \\ \rho^* (u^*)^2 + p^* \\ u^* (E^* + p^*) \end{pmatrix}$$
+$$\hat{\mathbf{F}}_{i+1/2} = \begin{pmatrix} \rho^{*} u^{*} \\ \rho^{*} (u^{*})^2 + p^{*} \\ u^{*} (E^{*} + p^{*}) \end{pmatrix}$$
 
-où $(\rho^*, u^*, p^*)$ sont les variables primitives de la solution du problème de Riemann en $\xi = 0$, et $E^* = p^* / (\gamma - 1) + \tfrac{1}{2} \rho^* (u^*)^2$ l'énergie totale correspondante.
+où $(\rho^{*}, u^{*}, p^{*})$ sont les variables primitives de la solution du problème de Riemann en $\xi = 0$, et $E^{*} = p^{*} / (\gamma - 1) + \tfrac{1}{2} \rho^{*} (u^{*})^2$ l'énergie totale correspondante.
 
-La détermination de $(\rho^*, u^*, p^*)$ passe par :
-1. Le calcul de la pression intermédiaire $p^*$ par itération de Newton (cf. §2.4).
-2. L'identification du type de chaque onde (choc ou détente) à partir du signe de $p^* - p_L$ et $p^* - p_R$.
+La détermination de $(\rho^{*}, u^{*}, p^{*})$ passe par :
+1. Le calcul de la pression intermédiaire $p^{*}$ par itération de Newton (cf. §2.4).
+2. L'identification du type de chaque onde (choc ou détente) à partir du signe de $p^{*} - p_L$ et $p^{*} - p_R$.
 3. L'échantillonnage de la solution en $\xi = 0$ selon la position relative des ondes par rapport à l'interface (cf. §2.5).
 
 ### Avantages
@@ -75,7 +75,7 @@ La détermination de $(\rho^*, u^*, p^*)$ passe par :
 
 ### Inconvénients
 
-- **Coût élevé** : chaque interface nécessite une itération de Newton (typiquement 3 à 6 itérations) pour trouver $p^*$, plus l'échantillonnage de la solution. Cela représente un coût bien supérieur aux solveurs approchés.
+- **Coût élevé** : chaque interface nécessite une itération de Newton (typiquement 3 à 6 itérations) pour trouver $p^{*}$, plus l'échantillonnage de la solution. Cela représente un coût bien supérieur aux solveurs approchés.
 - **Boucle Python** : dans l'implémentation, le solveur exact est appelé interface par interface dans une boucle Python (car `sample_at_interface` ne se vectorise pas trivialement), ce qui le rend significativement plus lent que les schémas vectorisés (Rusanov, HLL).
 - **Reste d'ordre 1** : malgré l'exactitude du flux, la reconstruction constante par morceaux limite la précision globale à l'ordre 1.
 
@@ -149,11 +149,11 @@ Le schéma de Rusanov (§4.2) utilise une seule vitesse d'onde pour les trois fa
 
 Le problème de Riemann exact produit trois ondes et quatre états. Le modèle HLL simplifie cette structure en ne retenant que **deux ondes** (les plus rapides) et **trois états** :
 
-$$\mathbf{U}_L \xrightarrow{S_L} \mathbf{U}^*_{\text{HLL}} \xrightarrow{S_R} \mathbf{U}_R$$
+$$\mathbf{U}_L \xrightarrow{S_L} \mathbf{U}^{*}_{\text{HLL}} \xrightarrow{S_R} \mathbf{U}_R$$
 
-L'état intermédiaire $\mathbf{U}^*_{\text{HLL}}$ est déterminé par la conservation intégrale : en intégrant les équations de conservation sur le domaine de dépendance borné par $S_L$ et $S_R$, on obtient :
+L'état intermédiaire $\mathbf{U}^{*}_{\text{HLL}}$ est déterminé par la conservation intégrale : en intégrant les équations de conservation sur le domaine de dépendance borné par $S_L$ et $S_R$, on obtient :
 
-$$\mathbf{U}^*_{\text{HLL}} = \frac{S_R \mathbf{U}_R - S_L \mathbf{U}_L + \mathbf{F}_L - \mathbf{F}_R}{S_R - S_L}$$
+$$\mathbf{U}^{*}_{\text{HLL}} = \frac{S_R \mathbf{U}_R - S_L \mathbf{U}_L + \mathbf{F}_L - \mathbf{F}_R}{S_R - S_L}$$
 
 Le flux à l'interface dépend de la position de l'interface par rapport aux deux ondes.
 
@@ -193,12 +193,12 @@ Cette estimation prend le minimum (resp. maximum) des vitesses caractéristiques
 
 ### Inconvénients
 
-- **Étalement des contacts** : avec un seul état intermédiaire, HLL ne peut pas résoudre la discontinuité de contact. Dans la solution exacte, $u$ et $p$ sont continus à travers le contact mais $\rho$ est discontinu. HLL « moyenne » cette discontinuité dans son état unique $\mathbf{U}^*_{\text{HLL}}$, ce qui étale le profil de densité.
+- **Étalement des contacts** : avec un seul état intermédiaire, HLL ne peut pas résoudre la discontinuité de contact. Dans la solution exacte, $u$ et $p$ sont continus à travers le contact mais $\rho$ est discontinu. HLL « moyenne » cette discontinuité dans son état unique $\mathbf{U}^{*}_{\text{HLL}}$, ce qui étale le profil de densité.
 - **Moins précis que HLLC ou Roe** sur les cas avec des contacts marqués (tube de Sod, test de Lax).
 
 ### Comparaison
 
-HLL améliore Rusanov (§4.2) en distinguant deux vitesses d'onde. Mais il ne résout que deux ondes sur trois : la discontinuité de contact est manquante. HLLC (§4.4) corrige ce défaut en ajoutant une troisième onde (l'onde de contact $S^*$). Roe (§4.5) offre une résolution complète des trois ondes par linéarisation, mais peut souffrir de chocs d'expansion sans correction entropique. Godunov (§4.1) est exact mais plus coûteux.
+HLL améliore Rusanov (§4.2) en distinguant deux vitesses d'onde. Mais il ne résout que deux ondes sur trois : la discontinuité de contact est manquante. HLLC (§4.4) corrige ce défaut en ajoutant une troisième onde (l'onde de contact $S^{*}$). Roe (§4.5) offre une résolution complète des trois ondes par linéarisation, mais peut souffrir de chocs d'expansion sans correction entropique. Godunov (§4.1) est exact mais plus coûteux.
 
 ### Références
 
@@ -215,13 +215,13 @@ HLL améliore Rusanov (§4.2) en distinguant deux vitesses d'onde. Mais il ne r�
 
 Le schéma HLL (§4.3) modélise le problème de Riemann avec seulement deux ondes ($S_L$ et $S_R$) et un seul état intermédiaire. Cette simplification a un prix : l'**onde de contact** — la deuxième onde du système d'Euler, associée à la valeur propre $\lambda_2 = u$ — est absente du modèle. Physiquement, l'onde de contact sépare deux régions à la même pression et la même vitesse, mais avec des densités différentes (cf. §2.1). En l'absence de cette onde, HLL « moyenne » les deux densités, ce qui étale le profil de densité au voisinage du contact.
 
-Le schéma HLLC (*HLL-Contact*) corrige ce défaut en ajoutant une **troisième onde** $S^*$ correspondant à l'onde de contact. Le problème de Riemann approché comporte alors trois ondes et quatre états, comme le problème exact.
+Le schéma HLLC (*HLL-Contact*) corrige ce défaut en ajoutant une **troisième onde** $S^{*}$ correspondant à l'onde de contact. Le problème de Riemann approché comporte alors trois ondes et quatre états, comme le problème exact.
 
 ### Principe : quatre régions
 
 Le modèle HLLC divise le plan $(x, t)$ en quatre régions séparées par trois ondes :
 
-$$\mathbf{U}_L \xrightarrow{S_L} \mathbf{U}^*_L \xrightarrow{S^*} \mathbf{U}^*_R \xrightarrow{S_R} \mathbf{U}_R$$
+$$\mathbf{U}_L \xrightarrow{S_L} \mathbf{U}^{*}_L \xrightarrow{S^{*}} \mathbf{U}^{*}_R \xrightarrow{S_R} \mathbf{U}_R$$
 
 ```
     t
@@ -235,11 +235,11 @@ $$\mathbf{U}_L \xrightarrow{S_L} \mathbf{U}^*_L \xrightarrow{S^*} \mathbf{U}^*_R
 ```
 
 - **Région gauche** ($\xi < S_L$) : état non perturbé $\mathbf{U}_L$.
-- **Région étoile gauche** ($S_L < \xi < S^*$) : état intermédiaire $\mathbf{U}^*_L$.
-- **Région étoile droite** ($S^* < \xi < S_R$) : état intermédiaire $\mathbf{U}^*_R$.
+- **Région étoile gauche** ($S_L < \xi < S^{*}$) : état intermédiaire $\mathbf{U}^{*}_L$.
+- **Région étoile droite** ($S^{*} < \xi < S_R$) : état intermédiaire $\mathbf{U}^{*}_R$.
 - **Région droite** ($\xi > S_R$) : état non perturbé $\mathbf{U}_R$.
 
-Les deux états étoile partagent la **même pression** $p^*$ et la **même vitesse** $u^* = S^*$ (conditions de Rankine-Hugoniot à travers l'onde de contact), mais ont des **densités différentes** $\rho^*_L \neq \rho^*_R$. C'est précisément cette différence de densité que HLL ne pouvait pas capturer.
+Les deux états étoile partagent la **même pression** $p^{*}$ et la **même vitesse** $u^{*} = S^{*}$ (conditions de Rankine-Hugoniot à travers l'onde de contact), mais ont des **densités différentes** $\rho^{*}_L \neq \rho^{*}_R$. C'est précisément cette différence de densité que HLL ne pouvait pas capturer.
 
 ### Étape 1 : Estimation des vitesses d'onde $S_L$ et $S_R$
 
@@ -250,11 +250,11 @@ $$S_R = \max(u_L + a_L,\; u_R + a_R)$$
 
 Ces estimations garantissent que $S_L$ et $S_R$ encadrent les ondes acoustiques réelles du problème de Riemann exact.
 
-### Étape 2 : Vitesse de contact $S^*$
+### Étape 2 : Vitesse de contact $S^{*}$
 
-La vitesse de l'onde de contact $S^*$ est déterminée par la conservation de la quantité de mouvement à travers les ondes. En écrivant les relations de Rankine-Hugoniot pour les deux ondes extérieures (entre $\mathbf{U}_L$ et $\mathbf{U}^*_L$ d'une part, $\mathbf{U}^*_R$ et $\mathbf{U}_R$ d'autre part), et en imposant l'égalité des pressions étoile ($p^*_L = p^*_R$), on obtient :
+La vitesse de l'onde de contact $S^{*}$ est déterminée par la conservation de la quantité de mouvement à travers les ondes. En écrivant les relations de Rankine-Hugoniot pour les deux ondes extérieures (entre $\mathbf{U}_L$ et $\mathbf{U}^{*}_L$ d'une part, $\mathbf{U}^{*}_R$ et $\mathbf{U}_R$ d'autre part), et en imposant l'égalité des pressions étoile ($p^{*}_L = p^{*}_R$), on obtient :
 
-$$S^* = \frac{p_R - p_L + \rho_L u_L (S_L - u_L) - \rho_R u_R (S_R - u_R)}{\rho_L (S_L - u_L) - \rho_R (S_R - u_R)}$$
+$$S^{*} = \frac{p_R - p_L + \rho_L u_L (S_L - u_L) - \rho_R u_R (S_R - u_R)}{\rho_L (S_L - u_L) - \rho_R (S_R - u_R)}$$
 
 **Interprétation physique** :
 
@@ -262,21 +262,21 @@ $$S^* = \frac{p_R - p_L + \rho_L u_L (S_L - u_L) - \rho_R u_R (S_R - u_R)}{\rho_
 
 - **Dénominateur** : $\rho_K (S_K - u_K)$ est le débit massique à travers chaque onde extérieure. La différence des deux débits normalise l'expression.
 
-- **Résultat** : $S^*$ est la vitesse commune des états étoile. Elle correspond à la vitesse du fluide dans la zone intermédiaire, c'est-à-dire la vitesse de la discontinuité de contact.
+- **Résultat** : $S^{*}$ est la vitesse commune des états étoile. Elle correspond à la vitesse du fluide dans la zone intermédiaire, c'est-à-dire la vitesse de la discontinuité de contact.
 
-### Étape 3 : États intermédiaires $\mathbf{U}^*_K$
+### Étape 3 : États intermédiaires $\mathbf{U}^{*}_K$
 
 Les états intermédiaires sont obtenus par les relations de Rankine-Hugoniot à travers les ondes extérieures. Pour un côté $K \in \{L, R\}$ avec la vitesse d'onde $S_K$ :
 
-$$\mathbf{U}^*_K = \rho_K \frac{S_K - u_K}{S_K - S^*} \begin{pmatrix} 1 \\ S^* \\ E_K / \rho_K + (S^* - u_K)\bigl[S^* + p_K / (\rho_K (S_K - u_K))\bigr] \end{pmatrix}$$
+$$\mathbf{U}^{*}_K = \rho_K \frac{S_K - u_K}{S_K - S^{*}} \begin{pmatrix} 1 \\ S^{*} \\ E_K / \rho_K + (S^{*} - u_K)\bigl[S^{*} + p_K / (\rho_K (S_K - u_K))\bigr] \end{pmatrix}$$
 
 **Interprétation terme par terme** :
 
-- **Facteur $\rho_K (S_K - u_K) / (S_K - S^*)$** : ce ratio traduit la compression ou la dilatation du fluide entre l'état $K$ et l'état étoile. Il est déterminé par la conservation de la masse à travers l'onde $S_K$.
+- **Facteur $\rho_K (S_K - u_K) / (S_K - S^{*})$** : ce ratio traduit la compression ou la dilatation du fluide entre l'état $K$ et l'état étoile. Il est déterminé par la conservation de la masse à travers l'onde $S_K$.
 
-- **Composante 1** (masse) : la densité étoile est $\rho^*_K = \rho_K (S_K - u_K) / (S_K - S^*)$.
+- **Composante 1** (masse) : la densité étoile est $\rho^{*}_K = \rho_K (S_K - u_K) / (S_K - S^{*})$.
 
-- **Composante 2** (quantité de mouvement) : la vitesse dans la zone étoile est $S^*$, donc $(\rho u)^*_K = \rho^*_K \cdot S^*$.
+- **Composante 2** (quantité de mouvement) : la vitesse dans la zone étoile est $S^{*}$, donc $(\rho u)^{*}_K = \rho^{*}_K \cdot S^{*}$.
 
 - **Composante 3** (énergie) : l'énergie totale spécifique est modifiée par le travail des forces de pression lors du passage à travers l'onde. Le terme $p_K / (\rho_K (S_K - u_K))$ représente le rapport entre la pression et le débit massique à travers l'onde.
 
@@ -284,15 +284,15 @@ $$\mathbf{U}^*_K = \rho_K \frac{S_K - u_K}{S_K - S^*} \begin{pmatrix} 1 \\ S^* \
 
 Le flux à l'interface est déterminé par la position de l'interface ($\xi = 0$) par rapport aux trois ondes :
 
-$$\hat{\mathbf{F}}_{i+1/2} = \begin{cases} \mathbf{F}_L & \text{si } S_L \geq 0 \\[4pt] \mathbf{F}^*_L = \mathbf{F}_L + S_L (\mathbf{U}^*_L - \mathbf{U}_L) & \text{si } S_L < 0 \leq S^* \\[4pt] \mathbf{F}^*_R = \mathbf{F}_R + S_R (\mathbf{U}^*_R - \mathbf{U}_R) & \text{si } S^* < 0 < S_R \\[4pt] \mathbf{F}_R & \text{si } S_R \leq 0 \end{cases}$$
+$$\hat{\mathbf{F}}_{i+1/2} = \begin{cases} \mathbf{F}_L & \text{si } S_L \geq 0 \\[4pt] \mathbf{F}^{*}_L = \mathbf{F}_L + S_L (\mathbf{U}^{*}_L - \mathbf{U}_L) & \text{si } S_L < 0 \leq S^{*} \\[4pt] \mathbf{F}^{*}_R = \mathbf{F}_R + S_R (\mathbf{U}^{*}_R - \mathbf{U}_R) & \text{si } S^{*} < 0 < S_R \\[4pt] \mathbf{F}_R & \text{si } S_R \leq 0 \end{cases}$$
 
 **Interprétation des quatre cas** :
 
 1. **$S_L \geq 0$** : toutes les ondes se propagent vers la droite. L'interface « voit » l'état gauche non perturbé. Le flux est simplement $\mathbf{F}_L$.
 
-2. **$S_L < 0 \leq S^*$** : l'onde la plus rapide à gauche a déjà traversé l'interface, mais l'onde de contact est encore à droite. L'interface est dans la région étoile gauche. Le flux $\mathbf{F}^*_L$ est obtenu par la relation de Rankine-Hugoniot : $\mathbf{F}^*_L = \mathbf{F}_L + S_L (\mathbf{U}^*_L - \mathbf{U}_L)$.
+2. **$S_L < 0 \leq S^{*}$** : l'onde la plus rapide à gauche a déjà traversé l'interface, mais l'onde de contact est encore à droite. L'interface est dans la région étoile gauche. Le flux $\mathbf{F}^{*}_L$ est obtenu par la relation de Rankine-Hugoniot : $\mathbf{F}^{*}_L = \mathbf{F}_L + S_L (\mathbf{U}^{*}_L - \mathbf{U}_L)$.
 
-3. **$S^* < 0 < S_R$** : l'onde de contact a traversé l'interface, mais l'onde droite ne l'a pas encore atteinte. L'interface est dans la région étoile droite. Le flux $\mathbf{F}^*_R$ est obtenu de manière symétrique.
+3. **$S^{*} < 0 < S_R$** : l'onde de contact a traversé l'interface, mais l'onde droite ne l'a pas encore atteinte. L'interface est dans la région étoile droite. Le flux $\mathbf{F}^{*}_R$ est obtenu de manière symétrique.
 
 4. **$S_R \leq 0$** : toutes les ondes se propagent vers la gauche. L'interface « voit » l'état droit non perturbé.
 

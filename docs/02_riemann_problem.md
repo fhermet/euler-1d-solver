@@ -39,7 +39,7 @@ On dit que la solution est **auto-similaire** : la structure des ondes à $t = 0
 Comme démontré au §1.5 du Chapitre 1, le système d'Euler 1D possède trois valeurs propres $\lambda_1 = u - a$, $\lambda_2 = u$ et $\lambda_3 = u + a$. La solution du problème de Riemann est donc composée de **trois ondes** séparant **quatre états constants** :
 
 $$
-\mathbf{U}_L \xrightarrow{\text{onde 1}} \mathbf{U}_L^* \xrightarrow{\text{onde 2}} \mathbf{U}_R^* \xrightarrow{\text{onde 3}} \mathbf{U}_R
+\mathbf{U}_L \xrightarrow{\text{onde 1}} \mathbf{U}_L^{*} \xrightarrow{\text{onde 2}} \mathbf{U}_R^{*} \xrightarrow{\text{onde 3}} \mathbf{U}_R
 $$
 
 ```
@@ -59,12 +59,12 @@ $$
 Les **conditions de compatibilité** à travers la discontinuité de contact (onde 2) imposent que la pression et la vitesse soient continues :
 
 $$
-p_L^* = p_R^* = p^*, \qquad u_L^* = u_R^* = u^*
+p_L^{*} = p_R^{*} = p^{*}, \qquad u_L^{*} = u_R^{*} = u^{*}
 $$
 
-Les deux états intermédiaires ne diffèrent que par leur **densité** : $\rho_L^* \neq \rho_R^*$ en général.
+Les deux états intermédiaires ne diffèrent que par leur **densité** : $\rho_L^{*} \neq \rho_R^{*}$ en général.
 
-La résolution du problème de Riemann se ramène donc à déterminer deux inconnues scalaires $(p^*, u^*)$, appelées **pression et vitesse de la région étoile**. Une fois ces quantités connues, les densités $\rho_L^*$ et $\rho_R^*$ s'en déduisent, ainsi que la nature (choc ou détente) de chaque onde acoustique.
+La résolution du problème de Riemann se ramène donc à déterminer deux inconnues scalaires $(p^{*}, u^{*})$, appelées **pression et vitesse de la région étoile**. Une fois ces quantités connues, les densités $\rho_L^{*}$ et $\rho_R^{*}$ s'en déduisent, ainsi que la nature (choc ou détente) de chaque onde acoustique.
 
 ---
 
@@ -90,28 +90,28 @@ où $[\![Q]\!] = Q_{\text{après}} - Q_{\text{avant}}$ désigne le saut de la qu
 
 ### Vitesse du choc
 
-En développant les relations de Rankine-Hugoniot pour l'équation de conservation de la masse, on obtient la vitesse du choc. Pour un choc gauche (onde 1) reliant $\mathbf{U}_L$ à $\mathbf{U}_L^*$ :
+En développant les relations de Rankine-Hugoniot pour l'équation de conservation de la masse, on obtient la vitesse du choc. Pour un choc gauche (onde 1) reliant $\mathbf{U}_L$ à $\mathbf{U}_L^{*}$ :
 
 $$
-s_L = u_L - a_L \sqrt{\frac{\gamma + 1}{2\gamma} \frac{p^*}{p_L} + \frac{\gamma - 1}{2\gamma}}
+s_L = u_L - a_L \sqrt{\frac{\gamma + 1}{2\gamma} \frac{p^{*}}{p_L} + \frac{\gamma - 1}{2\gamma}}
 $$
 
-La quantité sous la racine est toujours supérieure à 1 quand $p^* > p_L$ (compression), de sorte que $\lvert s_L - u_L \rvert > a_L$ : **le choc se propage plus vite que le son** dans le milieu non perturbé.
+La quantité sous la racine est toujours supérieure à 1 quand $p^{*} > p_L$ (compression), de sorte que $\lvert s_L - u_L \rvert > a_L$ : **le choc se propage plus vite que le son** dans le milieu non perturbé.
 
-Pour un choc droit (onde 3) reliant $\mathbf{U}_R^*$ à $\mathbf{U}_R$ :
+Pour un choc droit (onde 3) reliant $\mathbf{U}_R^{*}$ à $\mathbf{U}_R$ :
 
 $$
-s_R = u_R + a_R \sqrt{\frac{\gamma + 1}{2\gamma} \frac{p^*}{p_R} + \frac{\gamma - 1}{2\gamma}}
+s_R = u_R + a_R \sqrt{\frac{\gamma + 1}{2\gamma} \frac{p^{*}}{p_R} + \frac{\gamma - 1}{2\gamma}}
 $$
 
 ### Lieu de Hugoniot
 
 L'ensemble des états $(\rho, u, p)$ accessibles depuis un état donné $(\rho_K, u_K, p_K)$ par un choc vérifie les relations de Rankine-Hugoniot. Cet ensemble forme le **lieu de Hugoniot** (ou courbe de Hugoniot) dans l'espace des états.
 
-Pour un choc de la $k$-ème famille, la relation entre la pression dans la région étoile $p^*$ et la variation de vitesse s'écrit :
+Pour un choc de la $k$-ème famille, la relation entre la pression dans la région étoile $p^{*}$ et la variation de vitesse s'écrit :
 
 $$
-f_K^{\text{choc}}(p^*) = (p^* - p_K) \sqrt{\frac{A_K}{p^* + B_K}}
+f_K^{\text{choc}}(p^{*}) = (p^{*} - p_K) \sqrt{\frac{A_K}{p^{*} + B_K}}
 $$
 
 avec les coefficients :
@@ -122,7 +122,7 @@ $$
 
 **Origine de $A_K$.** Le coefficient $A_K = 2 / ((\gamma + 1) \rho_K)$ provient des relations de Rankine-Hugoniot appliquées au gaz parfait. Le facteur $(\gamma + 1)$ reflète le rapport de compression maximal qu'un choc peut produire dans un gaz parfait, qui est $(\gamma + 1) / (\gamma - 1)$.
 
-**Origine de $B_K$.** Le coefficient $B_K = (\gamma - 1) / (\gamma + 1) \cdot p_K$ est lié à la pression de référence. Il assure que lorsque $p^* = p_K$ (pas de choc), la fonction $f_K^{\text{choc}}$ s'annule. Le rapport $(\gamma - 1) / (\gamma + 1)$ apparaît naturellement dans les relations de saut pour un gaz parfait.
+**Origine de $B_K$.** Le coefficient $B_K = (\gamma - 1) / (\gamma + 1) \cdot p_K$ est lié à la pression de référence. Il assure que lorsque $p^{*} = p_K$ (pas de choc), la fonction $f_K^{\text{choc}}$ s'annule. Le rapport $(\gamma - 1) / (\gamma + 1)$ apparaît naturellement dans les relations de saut pour un gaz parfait.
 
 ### Condition d'entropie de Lax
 
@@ -140,7 +140,7 @@ $$
 
 ### Invariants de Riemann
 
-Contrairement aux chocs, les détentes sont des ondes **continues et lisses**. Elles apparaissent lorsque le fluide se détend ($p^* < p_K$). À travers une détente, l'écoulement est **isentropique** (entropie constante).
+Contrairement aux chocs, les détentes sont des ondes **continues et lisses**. Elles apparaissent lorsque le fluide se détend ($p^{*} < p_K$). À travers une détente, l'écoulement est **isentropique** (entropie constante).
 
 Les **invariants de Riemann** sont des quantités qui restent constantes le long des courbes caractéristiques d'une famille donnée :
 
@@ -155,11 +155,11 @@ La détente est un **éventail de caractéristiques** (fan) centré au point $(x
 
 Pour une détente gauche (1er champ), le fan est délimité par :
 - **Tête** (bord extérieur) : $\xi_{\text{head}} = u_L - a_L$ (caractéristique la plus rapide, dans l'état non perturbé)
-- **Queue** (bord intérieur) : $\xi_{\text{tail}} = u^* - a_L^*$ (caractéristique dans la région étoile)
+- **Queue** (bord intérieur) : $\xi_{\text{tail}} = u^{*} - a_L^{*}$ (caractéristique dans la région étoile)
 
 Pour une détente droite (3e champ) :
 - **Tête** : $\xi_{\text{head}} = u_R + a_R$
-- **Queue** : $\xi_{\text{tail}} = u^* + a_R^*$
+- **Queue** : $\xi_{\text{tail}} = u^{*} + a_R^{*}$
 
 ### Profils auto-similaires à l'intérieur du fan
 
@@ -199,13 +199,13 @@ De même, pour un processus isentropique, $p \propto a^{2\gamma/(\gamma - 1)}$. 
 
 ### Branche raréfaction de l'équation de pression
 
-La relation entre la pression de la région étoile $p^*$ et la variation de vitesse à travers une détente s'écrit :
+La relation entre la pression de la région étoile $p^{*}$ et la variation de vitesse à travers une détente s'écrit :
 
 $$
-f_K^{\text{rare}}(p^*) = \frac{2 a_K}{\gamma - 1}\left[\left(\frac{p^*}{p_K}\right)^{(\gamma - 1)/(2\gamma)} - 1\right]
+f_K^{\text{rare}}(p^{*}) = \frac{2 a_K}{\gamma - 1}\left[\left(\frac{p^{*}}{p_K}\right)^{(\gamma - 1)/(2\gamma)} - 1\right]
 $$
 
-**Origine.** Cette expression s'obtient en intégrant l'invariant de Riemann entre l'état $K$ et la région étoile. Le terme $(p^*/p_K)^{(\gamma-1)/(2\gamma)}$ est le rapport des vitesses du son $a^*/a_K$, obtenu via la relation isentropique $a \propto p^{(\gamma-1)/(2\gamma)}$. Lorsque $p^* < p_K$ (détente), ce rapport est inférieur à 1 et $f_K^{\text{rare}}$ est négatif : la vitesse change dans le sens de la détente.
+**Origine.** Cette expression s'obtient en intégrant l'invariant de Riemann entre l'état $K$ et la région étoile. Le terme $(p^{*}/p_K)^{(\gamma-1)/(2\gamma)}$ est le rapport des vitesses du son $a^{*}/a_K$, obtenu via la relation isentropique $a \propto p^{(\gamma-1)/(2\gamma)}$. Lorsque $p^{*} < p_K$ (détente), ce rapport est inférieur à 1 et $f_K^{\text{rare}}$ est négatif : la vitesse change dans le sens de la détente.
 
 ---
 
@@ -223,13 +223,13 @@ Contrairement aux champs véritablement non linéaires qui produisent des chocs 
 
 ### Propriétés de la discontinuité de contact
 
-La discontinuité de contact se propage à la vitesse $u^*$ et sépare les régions étoile gauche et droite. À travers cette discontinuité :
+La discontinuité de contact se propage à la vitesse $u^{*}$ et sépare les régions étoile gauche et droite. À travers cette discontinuité :
 
 | Grandeur | Comportement | Explication |
 |---|---|---|
-| Pression $p$ | **Continue** : $p_L^* = p_R^* = p^*$ | L'équilibre des forces à travers l'interface impose la continuité de la pression. Un saut de pression créerait une accélération infinie. |
-| Vitesse $u$ | **Continue** : $u_L^* = u_R^* = u^*$ | Les deux masses de fluide se déplacent à la même vitesse. Un saut de vitesse impliquerait une séparation ou une interpénétration du fluide. |
-| Densité $\rho$ | **Discontinue** : $\rho_L^* \neq \rho_R^*$ | Deux masses de fluide de densités différentes peuvent coexister à la même pression et vitesse. |
+| Pression $p$ | **Continue** : $p_L^{*} = p_R^{*} = p^{*}$ | L'équilibre des forces à travers l'interface impose la continuité de la pression. Un saut de pression créerait une accélération infinie. |
+| Vitesse $u$ | **Continue** : $u_L^{*} = u_R^{*} = u^{*}$ | Les deux masses de fluide se déplacent à la même vitesse. Un saut de vitesse impliquerait une séparation ou une interpénétration du fluide. |
+| Densité $\rho$ | **Discontinue** : $\rho_L^{*} \neq \rho_R^{*}$ | Deux masses de fluide de densités différentes peuvent coexister à la même pression et vitesse. |
 | Température $T$ | **Discontinue** | Par l'équation d'état $p = \rho R T / M$, si $p$ est continu et $\rho$ discontinu, alors $T$ l'est aussi. |
 | Entropie $s$ | **Discontinue** | Le saut d'entropie est lié au saut de densité à pression constante. Mais il n'y a **pas de production d'entropie** : le saut est simplement transporté. |
 
@@ -237,7 +237,7 @@ La discontinuité de contact se propage à la vitesse $u^*$ et sépare les régi
 
 Un exemple concret de discontinuité de contact est l'interface entre deux gaz différents (par exemple, de l'hélium et de l'air) dans un tube. Les deux gaz sont à la même pression et se déplacent à la même vitesse, mais ils ont des densités (et des masses molaires) très différentes. L'interface est advectée à la vitesse du fluide sans se déformer.
 
-Dans le problème de Riemann, la discontinuité de contact est créée même si les deux états initiaux sont le même gaz (même $\gamma$). Elle provient du fait que les ondes acoustiques (choc ou détente) de part et d'autre compriment ou détendent le gaz de manière différente, produisant deux densités distinctes $\rho_L^*$ et $\rho_R^*$ dans la région étoile.
+Dans le problème de Riemann, la discontinuité de contact est créée même si les deux états initiaux sont le même gaz (même $\gamma$). Elle provient du fait que les ondes acoustiques (choc ou détente) de part et d'autre compriment ou détendent le gaz de manière différente, produisant deux densités distinctes $\rho_L^{*}$ et $\rho_R^{*}$ dans la région étoile.
 
 ---
 
@@ -245,28 +245,28 @@ Dans le problème de Riemann, la discontinuité de contact est créée même si 
 
 ### Formulation du problème
 
-Les conditions de compatibilité à travers la discontinuité de contact imposent $p_L^* = p_R^* = p^*$ et $u_L^* = u_R^* = u^*$. La vitesse dans la région étoile s'exprime en fonction de $p^*$ via les relations de chaque onde :
+Les conditions de compatibilité à travers la discontinuité de contact imposent $p_L^{*} = p_R^{*} = p^{*}$ et $u_L^{*} = u_R^{*} = u^{*}$. La vitesse dans la région étoile s'exprime en fonction de $p^{*}$ via les relations de chaque onde :
 
 $$
-u^* = u_L - f_L(p^*) = u_R + f_R(p^*)
+u^{*} = u_L - f_L(p^{*}) = u_R + f_R(p^{*})
 $$
 
-où $f_K(p^*)$ est la variation de vitesse à travers l'onde de la famille $K$ :
-- si $p^* > p_K$ (choc) : $f_K = f_K^{\text{choc}}$ (§2.2),
-- si $p^* \leq p_K$ (détente) : $f_K = f_K^{\text{rare}}$ (§2.3).
+où $f_K(p^{*})$ est la variation de vitesse à travers l'onde de la famille $K$ :
+- si $p^{*} > p_K$ (choc) : $f_K = f_K^{\text{choc}}$ (§2.2),
+- si $p^{*} \leq p_K$ (détente) : $f_K = f_K^{\text{rare}}$ (§2.3).
 
-En éliminant $u^*$, on obtient l'**équation de pression** — une unique équation scalaire non linéaire en $p^*$ :
+En éliminant $u^{*}$, on obtient l'**équation de pression** — une unique équation scalaire non linéaire en $p^{*}$ :
 
 $$
-f(p^*) = f_L(p^*) + f_R(p^*) + (u_R - u_L) = 0
+f(p^{*}) = f_L(p^{*}) + f_R(p^{*}) + (u_R - u_L) = 0
 $$
 
 ### Branche choc
 
-Si $p^* > p_K$ (l'onde $K$ est un choc), la contribution de ce côté à l'équation de pression est :
+Si $p^{*} > p_K$ (l'onde $K$ est un choc), la contribution de ce côté à l'équation de pression est :
 
 $$
-f_K^{\text{choc}}(p^*) = (p^* - p_K) \sqrt{\frac{A_K}{p^* + B_K}}
+f_K^{\text{choc}}(p^{*}) = (p^{*} - p_K) \sqrt{\frac{A_K}{p^{*} + B_K}}
 $$
 
 avec :
@@ -277,35 +277,35 @@ $$
 
 **Dérivation.** Cette formule s'obtient en combinant les trois relations de Rankine-Hugoniot pour le système d'Euler. En éliminant la vitesse du choc $s$ et la densité post-choc entre les trois équations, on isole la variation de vitesse en fonction de la pression post-choc. Les coefficients $A_K$ et $B_K$ résultent de l'algèbre spécifique au gaz parfait (relation de Hugoniot adiabatique).
 
-La fonction $f_K^{\text{choc}}$ est positive et croissante pour $p^* > p_K$ : plus la compression est forte, plus la variation de vitesse est grande.
+La fonction $f_K^{\text{choc}}$ est positive et croissante pour $p^{*} > p_K$ : plus la compression est forte, plus la variation de vitesse est grande.
 
 ### Branche détente
 
-Si $p^* \leq p_K$ (l'onde $K$ est une détente), la contribution est :
+Si $p^{*} \leq p_K$ (l'onde $K$ est une détente), la contribution est :
 
 $$
-f_K^{\text{rare}}(p^*) = \frac{2 a_K}{\gamma - 1}\left[\left(\frac{p^*}{p_K}\right)^{(\gamma - 1)/(2\gamma)} - 1\right]
+f_K^{\text{rare}}(p^{*}) = \frac{2 a_K}{\gamma - 1}\left[\left(\frac{p^{*}}{p_K}\right)^{(\gamma - 1)/(2\gamma)} - 1\right]
 $$
 
-**Dérivation.** On part de l'invariant de Riemann : $u^* = u_K \mp \frac{2}{\gamma - 1}(a^* - a_K)$ (signe $-$ pour le côté gauche, $+$ pour le droit). La vitesse du son $a^*$ dans la région étoile est reliée à la pression par la relation isentropique :
+**Dérivation.** On part de l'invariant de Riemann : $u^{*} = u_K \mp \frac{2}{\gamma - 1}(a^{*} - a_K)$ (signe $-$ pour le côté gauche, $+$ pour le droit). La vitesse du son $a^{*}$ dans la région étoile est reliée à la pression par la relation isentropique :
 
 $$
-\frac{a^*}{a_K} = \left(\frac{p^*}{p_K}\right)^{(\gamma - 1)/(2\gamma)}
+\frac{a^{*}}{a_K} = \left(\frac{p^{*}}{p_K}\right)^{(\gamma - 1)/(2\gamma)}
 $$
 
 car pour un processus isentropique dans un gaz parfait, $p / \rho^\gamma = \text{const}$ et $a = \sqrt{\gamma p / \rho}$. En substituant, on obtient la formule ci-dessus.
 
-La fonction $f_K^{\text{rare}}$ est négative pour $p^* < p_K$ et s'annule en $p^* = p_K$.
+La fonction $f_K^{\text{rare}}$ est négative pour $p^{*} < p_K$ et s'annule en $p^{*} = p_K$.
 
 ### Continuité des branches
 
-Les deux branches se raccordent continûment en $p^* = p_K$ :
+Les deux branches se raccordent continûment en $p^{*} = p_K$ :
 
 $$
 f_K^{\text{choc}}(p_K) = 0 = f_K^{\text{rare}}(p_K)
 $$
 
-Les dérivées premières se raccordent également, garantissant que $f_K$ est de classe $C^1$. La fonction totale $f(p^*)$ est donc $C^1$ sur $]0, +\infty[$, ce qui assure la bonne convergence de la méthode de Newton.
+Les dérivées premières se raccordent également, garantissant que $f_K$ est de classe $C^1$. La fonction totale $f(p^{*})$ est donc $C^1$ sur $]0, +\infty[$, ce qui assure la bonne convergence de la méthode de Newton.
 
 ---
 
@@ -325,7 +325,7 @@ L'estimation est tronquée à une valeur positive minimale ($10^{-14}$) pour év
 
 ### Itération de Newton-Raphson
 
-On résout $f(p^*) = 0$ par la méthode de Newton :
+On résout $f(p^{*}) = 0$ par la méthode de Newton :
 
 $$
 p^{(k+1)} = p^{(k)} - \frac{f(p^{(k)})}{f'(p^{(k)})}
@@ -379,27 +379,27 @@ Lorsque cette condition est détectée, le solveur lève une erreur, car le mod�
 
 ### Principe
 
-Une fois les quantités de la région étoile $(p^*, u^*, \rho_L^*, \rho_R^*)$ calculées, il faut déterminer l'état $(\rho, u, p)$ en tout point $\xi = (x - x_0) / t$. C'est l'opération d'**échantillonnage** (*sampling*).
+Une fois les quantités de la région étoile $(p^{*}, u^{*}, \rho_L^{*}, \rho_R^{*})$ calculées, il faut déterminer l'état $(\rho, u, p)$ en tout point $\xi = (x - x_0) / t$. C'est l'opération d'**échantillonnage** (*sampling*).
 
 ### Densités dans la région étoile
 
-Les densités $\rho_L^*$ et $\rho_R^*$ se calculent différemment selon la nature de l'onde :
+Les densités $\rho_L^{*}$ et $\rho_R^{*}$ se calculent différemment selon la nature de l'onde :
 
-**À travers un choc** ($p^* > p_K$) — relation de Rankine-Hugoniot :
-
-$$
-\rho_K^* = \rho_K \frac{\dfrac{p^*}{p_K} + \dfrac{\gamma - 1}{\gamma + 1}}{\dfrac{\gamma - 1}{\gamma + 1} \dfrac{p^*}{p_K} + 1}
-$$
-
-Cette formule provient de l'élimination de la vitesse du choc dans les relations de Rankine-Hugoniot. Elle montre que pour un choc infiniment fort ($p^*/p_K \to \infty$), la densité tend vers $\rho_K \cdot (\gamma + 1) / (\gamma - 1)$, qui est le **taux de compression maximal** d'un choc dans un gaz parfait ($= 6$ pour $\gamma = 1.4$).
-
-**À travers une détente** ($p^* \leq p_K$) — relation isentropique :
+**À travers un choc** ($p^{*} > p_K$) — relation de Rankine-Hugoniot :
 
 $$
-\rho_K^* = \rho_K \left(\frac{p^*}{p_K}\right)^{1/\gamma}
+\rho_K^{*} = \rho_K \frac{\dfrac{p^{*}}{p_K} + \dfrac{\gamma - 1}{\gamma + 1}}{\dfrac{\gamma - 1}{\gamma + 1} \dfrac{p^{*}}{p_K} + 1}
 $$
 
-C'est la relation de Poisson $p / \rho^\gamma = \text{const}$ réécrite pour exprimer $\rho^*$ en fonction de $p^*$.
+Cette formule provient de l'élimination de la vitesse du choc dans les relations de Rankine-Hugoniot. Elle montre que pour un choc infiniment fort ($p^{*}/p_K \to \infty$), la densité tend vers $\rho_K \cdot (\gamma + 1) / (\gamma - 1)$, qui est le **taux de compression maximal** d'un choc dans un gaz parfait ($= 6$ pour $\gamma = 1.4$).
+
+**À travers une détente** ($p^{*} \leq p_K$) — relation isentropique :
+
+$$
+\rho_K^{*} = \rho_K \left(\frac{p^{*}}{p_K}\right)^{1/\gamma}
+$$
+
+C'est la relation de Poisson $p / \rho^\gamma = \text{const}$ réécrite pour exprimer $\rho^{*}$ en fonction de $p^{*}$.
 
 ### Arbre de décision
 
@@ -423,27 +423,27 @@ L'échantillonnage suit un **arbre de décision** basé sur la position $\xi = (
 
 Détaillons chaque cas :
 
-**1. $\xi < u^*$ (côté gauche de la discontinuité de contact)**
+**1. $\xi < u^{*}$ (côté gauche de la discontinuité de contact)**
 
-- **Choc gauche** ($p^* > p_L$) :
+- **Choc gauche** ($p^{*} > p_L$) :
   - Si $\xi < s_L$ : état non perturbé $(\rho_L, u_L, p_L)$
-  - Si $\xi \geq s_L$ : région étoile gauche $(\rho_L^*, u^*, p^*)$
+  - Si $\xi \geq s_L$ : région étoile gauche $(\rho_L^{*}, u^{*}, p^{*})$
 
-- **Détente gauche** ($p^* \leq p_L$) :
+- **Détente gauche** ($p^{*} \leq p_L$) :
   - Si $\xi < u_L - a_L$ (avant la tête) : état non perturbé $(\rho_L, u_L, p_L)$
-  - Si $u_L - a_L \leq \xi \leq u^* - a_L^*$ (dans le fan) : profils auto-similaires du §2.3
-  - Si $\xi > u^* - a_L^*$ (après la queue) : région étoile gauche $(\rho_L^*, u^*, p^*)$
+  - Si $u_L - a_L \leq \xi \leq u^{*} - a_L^{*}$ (dans le fan) : profils auto-similaires du §2.3
+  - Si $\xi > u^{*} - a_L^{*}$ (après la queue) : région étoile gauche $(\rho_L^{*}, u^{*}, p^{*})$
 
-**2. $\xi \geq u^*$ (côté droit de la discontinuité de contact)**
+**2. $\xi \geq u^{*}$ (côté droit de la discontinuité de contact)**
 
-- **Choc droit** ($p^* > p_R$) :
+- **Choc droit** ($p^{*} > p_R$) :
   - Si $\xi > s_R$ : état non perturbé $(\rho_R, u_R, p_R)$
-  - Si $\xi \leq s_R$ : région étoile droite $(\rho_R^*, u^*, p^*)$
+  - Si $\xi \leq s_R$ : région étoile droite $(\rho_R^{*}, u^{*}, p^{*})$
 
-- **Détente droite** ($p^* \leq p_R$) :
+- **Détente droite** ($p^{*} \leq p_R$) :
   - Si $\xi > u_R + a_R$ (avant la tête) : état non perturbé $(\rho_R, u_R, p_R)$
-  - Si $u^* + a_R^* \leq \xi \leq u_R + a_R$ (dans le fan) : profils auto-similaires (symétriques du §2.3)
-  - Si $\xi < u^* + a_R^*$ (après la queue) : région étoile droite $(\rho_R^*, u^*, p^*)$
+  - Si $u^{*} + a_R^{*} \leq \xi \leq u_R + a_R$ (dans le fan) : profils auto-similaires (symétriques du §2.3)
+  - Si $\xi < u^{*} + a_R^{*}$ (après la queue) : région étoile droite $(\rho_R^{*}, u^{*}, p^{*})$
 
 ### Vectorisation
 
@@ -491,13 +491,13 @@ Les concepts mathématiques de ce chapitre sont implémentés dans le module [`e
 | Branche choc de $f_K$ | §2.2, §2.5 | `_f_shock()` |
 | Branche détente de $f_K$ | §2.3, §2.5 | `_f_rare()` |
 | Sélection de branche | §2.5 | `_f_side()` |
-| Équation de pression $f(p^*)$ | §2.5 | `_f_total()` |
-| Dérivée $f'(p^*)$ | §2.6 | `_df_total()`, `_df_dp_side()` |
+| Équation de pression $f(p^{*})$ | §2.5 | `_f_total()` |
+| Dérivée $f'(p^{*})$ | §2.6 | `_df_total()`, `_df_dp_side()` |
 | Estimation initiale PVRS | §2.6 | `_pressure_guess_pvrs()` |
 | Détection du vide | §2.6 | `_vacuum_will_form()` |
 | Itération de Newton | §2.6 | `solve_p_star()` |
-| Vitesse $u^*$ | §2.5 | `compute_u_star()` |
-| Densités $\rho_L^*$, $\rho_R^*$ | §2.7 | `star_region_densities()` |
+| Vitesse $u^{*}$ | §2.5 | `compute_u_star()` |
+| Densités $\rho_L^{*}$, $\rho_R^{*}$ | §2.7 | `star_region_densities()` |
 | Résolution complète | — | `solve_riemann()` |
 | Échantillonnage vectorisé | §2.7 | `sample_riemann()` |
 | Échantillonnage à $\xi = 0$ (Godunov) | §2.7 | `sample_at_interface()` |

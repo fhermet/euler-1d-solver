@@ -143,7 +143,7 @@ $$
 \Delta u_{\text{vide}} = \frac{2}{\gamma - 1}(a_L + a_R) = 5 \times 1.497 = 7.483
 $$
 
-Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La pression de la zone etoile est extremement faible : $p^* \sim 10^{-13}$.
+Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La pression de la zone etoile est extremement faible : $p^{*} \sim 10^{-13}$.
 
 **Comparaison avec la double detente (SS 8.3) :** La double detente utilise $u = \pm 2$ ($\Delta u = 4$, soit 53% du seuil). Le quasi-vide est un cas bien plus severe.
 
@@ -178,7 +178,7 @@ avec la discontinuite en $x_0 = 0.4$.
 2. **Discontinuite de contact** au centre.
 3. **Choc droit** se propageant vers la droite.
 
-L'etat intermediaire atteint une pression tres elevee ($p^* \approx 1700$) et une densite elevee, creant des conditions post-choc extremes.
+L'etat intermediaire atteint une pression tres elevee ($p^{*} \approx 1700$) et une densite elevee, creant des conditions post-choc extremes.
 
 **Configuration :** Domaine $[0, 1]$, conditions aux limites transmissives, $t_{\text{final}} = 0.035$, $\gamma = 1.4$.
 
