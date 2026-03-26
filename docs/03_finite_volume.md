@@ -99,7 +99,7 @@ où $\mathbf{L}$ est l'opérateur spatial (calcul des flux numériques). On avan
 
 Le pas de temps est contraint par la condition **CFL** (Courant-Friedrichs-Lewy) :
 
-$$\Delta t = \text{CFL} \cdot \frac{\Delta x}{\max_i (|u_i| + c_i)}$$
+$$\Delta t = \text{CFL} \cdot \frac{\Delta x}{\max_i (\lvert u_i \rvert + c_i)}$$
 
 où $u_i$ est la vitesse locale et $c_i$ la vitesse du son. La constante CFL doit être inférieure ou égale à 1 pour la stabilité (typiquement CFL $= 0.5$ à $0.9$). Le dénominateur est la vitesse maximale de propagation de l'information dans le domaine, calculée à chaque pas de temps.
 

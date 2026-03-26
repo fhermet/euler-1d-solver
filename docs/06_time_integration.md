@@ -22,19 +22,19 @@ Cette approche, appelée **méthode des lignes** (*method of lines*), découple 
 
 La condition de **Courant-Friedrichs-Lewy** (CFL) impose une borne supérieure au pas de temps pour garantir la stabilité des schémas explicites :
 
-$$\Delta t = \text{CFL} \cdot \frac{\Delta x}{\displaystyle\max_i\bigl(|u_i| + c_i\bigr)}$$
+$$\Delta t = \text{CFL} \cdot \frac{\Delta x}{\displaystyle\max_i\bigl(\lvert u_i \rvert + c_i\bigr)}$$
 
 où $u_i$ est la vitesse du fluide et $c_i = \sqrt{\gamma\, p_i / \rho_i}$ la vitesse du son dans la cellule $i$.
 
 ### Interprétation physique
 
-Le dénominateur $\max(|u| + c)$ est la **vitesse maximale de propagation** de l'information dans le domaine. La condition CFL $\leq 1$ signifie que l'onde la plus rapide ne doit pas traverser plus d'une cellule par pas de temps. Si cette condition est violée, le domaine de dépendance numérique ne contient pas le domaine de dépendance physique, et le schéma devient instable.
+Le dénominateur $\max(\lvert u \rvert + c)$ est la **vitesse maximale de propagation** de l'information dans le domaine. La condition CFL $\leq 1$ signifie que l'onde la plus rapide ne doit pas traverser plus d'une cellule par pas de temps. Si cette condition est violée, le domaine de dépendance numérique ne contient pas le domaine de dépendance physique, et le schéma devient instable.
 
 ### Pas de temps adaptatif
 
 Dans le solveur, le pas de temps est **recalculé à chaque itération** :
 
-1. Calcul de $s_{\max} = \max_i(|u_i| + c_i)$ via `max_wave_speed(U, gamma)`.
+1. Calcul de $s_{\max} = \max_i(\lvert u_i \rvert + c_i)$ via `max_wave_speed(U, gamma)`.
 2. $\Delta t = \text{CFL} \cdot \Delta x / s_{\max}$.
 3. Ajustement final : si $t + \Delta t > t_{\text{final}}$, on réduit $\Delta t$ pour atteindre exactement $t_{\text{final}}$.
 
@@ -54,7 +54,7 @@ C'est une méthode à un seul étage, d'**ordre 1** en temps.
 
 ### Tableau de Butcher
 
-$$\begin{array}{c|c}
+$$\begin{array}{c\vert c}
 0 \\
 \hline
   & 1
@@ -85,7 +85,7 @@ C'est une méthode à deux étages, d'**ordre 2** en temps.
 
 ### Tableau de Butcher
 
-$$\begin{array}{c|cc}
+$$\begin{array}{c\vert cc}
 0 \\
 1 & 1 \\
 \hline
@@ -129,7 +129,7 @@ Chaque étage est une **combinaison convexe** (coefficients positifs sommant à 
 
 ### Tableau de Butcher
 
-$$\begin{array}{c|ccc}
+$$\begin{array}{c\vert ccc}
 0 \\
 1 & 1 \\
 1/2 & 1/4 & 1/4 \\
@@ -163,7 +163,7 @@ C'est une méthode à quatre étages, d'**ordre 4** en temps.
 
 ### Tableau de Butcher
 
-$$\begin{array}{c|cccc}
+$$\begin{array}{c\vert cccc}
 0 \\
 1/2 & 1/2 \\
 1/2 & 0 & 1/2 \\
@@ -213,7 +213,7 @@ On note que $\mathbf{k}_2$ n'intervient pas dans la formule finale (son coeffici
 
 ### Tableau de Butcher
 
-$$\begin{array}{c|cccccc}
+$$\begin{array}{c\vert cccccc}
 0 \\
 1/5 & 1/5 \\
 3/10 & 3/40 & 9/40 \\

@@ -106,7 +106,7 @@ $$\hat{\mathbf{F}}_{i+1/2} = \frac{1}{2}(\mathbf{F}_L + \mathbf{F}_R) - \frac{1}
 
 avec la vitesse d'onde maximale locale :
 
-$$S_{\max} = \max(|u_L| + a_L,\; |u_R| + a_R)$$
+$$S_{\max} = \max(\lvert u_L \rvert + a_L,\; \lvert u_R \rvert + a_R)$$
 
 **Interprétation terme par terme** :
 
@@ -114,7 +114,7 @@ $$S_{\max} = \max(|u_L| + a_L,\; |u_R| + a_R)$$
 
 - $-\frac{1}{2} S_{\max} (\mathbf{U}_R - \mathbf{U}_L)$ : **terme de dissipation numérique**. Il est proportionnel au saut des variables conservatives et à la vitesse maximale locale. Ce terme stabilise le schéma en ajoutant une diffusion artificielle. Il est analogue à un terme de viscosité artificielle $\nu \cdot \partial^2 \mathbf{U} / \partial x^2$ avec $\nu \propto S_{\max} \cdot \Delta x$.
 
-La vitesse $S_{\max}$ borne les trois vitesses propres du système ($u - a$, $u$, $u + a$) : on a toujours $|u - a| \leq |u| + a$ et $|u + a| \leq |u| + a$. Utiliser cette borne unique pour les trois ondes est ce qui rend le schéma simple mais excessivement dissipatif.
+La vitesse $S_{\max}$ borne les trois vitesses propres du système ($u - a$, $u$, $u + a$) : on a toujours $\lvert u - a \rvert \leq \lvert u \rvert + a$ et $\lvert u + a \rvert \leq \lvert u \rvert + a$. Utiliser cette borne unique pour les trois ondes est ce qui rend le schéma simple mais excessivement dissipatif.
 
 ### Avantages
 
@@ -125,7 +125,7 @@ La vitesse $S_{\max}$ borne les trois vitesses propres du système ($u - a$, $u$
 
 ### Inconvénients
 
-- **Très dissipatif** : le schéma le plus dissipatif parmi les solveurs de Riemann approchés. Une seule vitesse d'onde pour les trois familles signifie que l'onde de contact (qui se propage à la vitesse $u$) est amortie à un taux proportionnel à $|u| + a$ au lieu de $|u|$. Les discontinuités de contact sont fortement étalées.
+- **Très dissipatif** : le schéma le plus dissipatif parmi les solveurs de Riemann approchés. Une seule vitesse d'onde pour les trois familles signifie que l'onde de contact (qui se propage à la vitesse $u$) est amortie à un taux proportionnel à $\lvert u \rvert + a$ au lieu de $\lvert u \rvert$. Les discontinuités de contact sont fortement étalées.
 - **Précision limitée** : sur les cas test de type tube à choc, les profils sont nettement plus smearés que ceux de HLL (§4.3), HLLC (§4.4) ou Roe (§4.5).
 
 ### Comparaison
@@ -387,23 +387,23 @@ avec $\tilde{\rho} = \sqrt{\rho_L \rho_R}$ (moyenne géométrique), $\Delta \rho
 
 ### Formule du flux
 
-$$\hat{\mathbf{F}}_{i+1/2} = \frac{1}{2}(\mathbf{F}_L + \mathbf{F}_R) - \frac{1}{2} \sum_{k=1}^{3} |\tilde{\lambda}_k|\, \tilde{\alpha}_k\, \tilde{\mathbf{r}}_k$$
+$$\hat{\mathbf{F}}_{i+1/2} = \frac{1}{2}(\mathbf{F}_L + \mathbf{F}_R) - \frac{1}{2} \sum_{k=1}^{3} \lvert\tilde{\lambda}_k\rvert\, \tilde{\alpha}_k\, \tilde{\mathbf{r}}_k$$
 
 **Interprétation** :
 
 - $\frac{1}{2}(\mathbf{F}_L + \mathbf{F}_R)$ : flux centré, comme pour Rusanov (§4.2).
 
-- $-\frac{1}{2} \sum_{k=1}^{3} |\tilde{\lambda}_k|\, \tilde{\alpha}_k\, \tilde{\mathbf{r}}_k$ : **terme de dissipation numérique**. Contrairement à Rusanov qui utilise une seule vitesse $S_{\max}$ pour les trois ondes, Roe dissipe chaque onde $k$ avec sa propre vitesse $|\tilde{\lambda}_k|$ et sa propre amplitude $\tilde{\alpha}_k$. C'est cette dissipation **sélective** qui rend Roe beaucoup plus précis.
+- $-\frac{1}{2} \sum_{k=1}^{3} \lvert\tilde{\lambda}_k\rvert\, \tilde{\alpha}_k\, \tilde{\mathbf{r}}_k$ : **terme de dissipation numérique**. Contrairement à Rusanov qui utilise une seule vitesse $S_{\max}$ pour les trois ondes, Roe dissipe chaque onde $k$ avec sa propre vitesse $\lvert\tilde{\lambda}_k\rvert$ et sa propre amplitude $\tilde{\alpha}_k$. C'est cette dissipation **sélective** qui rend Roe beaucoup plus précis.
 
-En développant le produit $|\tilde{\lambda}_k|\, \tilde{\alpha}_k\, \tilde{\mathbf{r}}_k$ pour les trois ondes, on obtient la dissipation composante par composante (masse, quantité de mouvement, énergie) telle qu'implémentée dans le code.
+En développant le produit $\lvert\tilde{\lambda}_k\rvert\, \tilde{\alpha}_k\, \tilde{\mathbf{r}}_k$ pour les trois ondes, on obtient la dissipation composante par composante (masse, quantité de mouvement, énergie) telle qu'implémentée dans le code.
 
 ### Correction entropique de Harten
 
-Le schéma de Roe exact (sans correction) peut produire des **chocs d'expansion non physiques** (ou « expansion shocks »). Ce problème survient quand une valeur propre $\tilde{\lambda}_k$ passe par zéro : le terme $|\tilde{\lambda}_k|$ s'annule, la dissipation disparaît, et le schéma ne peut plus distinguer un choc physique (admissible) d'un choc d'expansion (non admissible au sens entropique).
+Le schéma de Roe exact (sans correction) peut produire des **chocs d'expansion non physiques** (ou « expansion shocks »). Ce problème survient quand une valeur propre $\tilde{\lambda}_k$ passe par zéro : le terme $\lvert\tilde{\lambda}_k\rvert$ s'annule, la dissipation disparaît, et le schéma ne peut plus distinguer un choc physique (admissible) d'un choc d'expansion (non admissible au sens entropique).
 
-La correction entropique de Harten-Hyman remplace $|\tilde{\lambda}_k|$ par une version régularisée :
+La correction entropique de Harten-Hyman remplace $\lvert\tilde{\lambda}_k\rvert$ par une version régularisée :
 
-$$|\tilde{\lambda}_k|_{\text{corrigé}} = \begin{cases} \varepsilon_k & \text{si } |\tilde{\lambda}_k| < \varepsilon_k \\ |\tilde{\lambda}_k| & \text{sinon} \end{cases}$$
+$$\lvert\tilde{\lambda}_k\rvert_{\text{corrigé}} = \begin{cases} \varepsilon_k & \text{si } \lvert\tilde{\lambda}_k\rvert < \varepsilon_k \\ \lvert\tilde{\lambda}_k\rvert & \text{sinon} \end{cases}$$
 
 avec le seuil :
 
@@ -415,7 +415,7 @@ où $\lambda_k^L$ et $\lambda_k^R$ sont les valeurs propres évaluées aux état
 
 ### Avantages
 
-- **Dissipation sélective** : chaque onde est dissipée à son propre taux. En particulier, l'onde de contact est dissipée uniquement au taux $|\tilde{u}|$, et non $|\tilde{u}| + \tilde{a}$ comme pour Rusanov.
+- **Dissipation sélective** : chaque onde est dissipée à son propre taux. En particulier, l'onde de contact est dissipée uniquement au taux $\lvert\tilde{u}\rvert$, et non $\lvert\tilde{u}\rvert + \tilde{a}$ comme pour Rusanov.
 - **Capture exacte des chocs isolés** : grâce à la propriété de conservation de la matrice de Roe, un choc séparant deux états constants est capturé en exactement un point (sans correction entropique).
 - **Résolution des trois ondes** : comme HLLC, Roe distingue les trois familles d'ondes.
 - **Vectorisé** : toutes les opérations sont vectorisées (pas de boucle Python).
@@ -451,7 +451,7 @@ Le schéma de Lax-Friedrichs est historiquement l'un des premiers schémas conse
 
 ### Principe
 
-Comme les schémas décentrés (§4.1–§4.5), le flux de Lax-Friedrichs a la forme « flux centré + dissipation ». Mais ici, le coefficient de dissipation n'est pas une vitesse d'onde locale : c'est le rapport global $\Delta x / \Delta t$, qui borne toujours la vitesse maximale (par la condition CFL : $\Delta t \leq \text{CFL} \cdot \Delta x / \max(|u| + a)$).
+Comme les schémas décentrés (§4.1–§4.5), le flux de Lax-Friedrichs a la forme « flux centré + dissipation ». Mais ici, le coefficient de dissipation n'est pas une vitesse d'onde locale : c'est le rapport global $\Delta x / \Delta t$, qui borne toujours la vitesse maximale (par la condition CFL : $\Delta t \leq \text{CFL} \cdot \Delta x / \max(\lvert u \rvert + a)$).
 
 ### Formule
 
@@ -461,7 +461,7 @@ $$\hat{\mathbf{F}}_{i+1/2} = \frac{1}{2}(\mathbf{F}_L + \mathbf{F}_R) - \frac{1}
 
 - $\frac{1}{2}(\mathbf{F}_L + \mathbf{F}_R)$ : flux centré.
 
-- $-\frac{1}{2} (\Delta x / \Delta t) (\mathbf{U}_R - \mathbf{U}_L)$ : dissipation numérique. Le coefficient $\Delta x / \Delta t$ est **global** : il est le même pour toutes les interfaces et pour toutes les ondes. Comme $\Delta x / \Delta t \geq \max(|u| + a) / \text{CFL}$, ce coefficient est toujours supérieur ou égal à la vitesse d'onde maximale. La dissipation est donc *au moins* aussi forte que celle de Rusanov, et en pratique beaucoup plus forte (sauf si CFL = 1 et la vitesse maximale est atteinte partout).
+- $-\frac{1}{2} (\Delta x / \Delta t) (\mathbf{U}_R - \mathbf{U}_L)$ : dissipation numérique. Le coefficient $\Delta x / \Delta t$ est **global** : il est le même pour toutes les interfaces et pour toutes les ondes. Comme $\Delta x / \Delta t \geq \max(\lvert u \rvert + a) / \text{CFL}$, ce coefficient est toujours supérieur ou égal à la vitesse d'onde maximale. La dissipation est donc *au moins* aussi forte que celle de Rusanov, et en pratique beaucoup plus forte (sauf si CFL = 1 et la vitesse maximale est atteinte partout).
 
 ### Comparaison avec Rusanov
 
@@ -469,7 +469,7 @@ La différence entre Lax-Friedrichs et Rusanov (§4.2) est subtile mais importan
 
 | | Lax-Friedrichs | Rusanov |
 |---|---|---|
-| Coefficient de dissipation | $\Delta x / \Delta t$ (global) | $S_{\max} = \max(\|u_L\| + a_L, \|u_R\| + a_R)$ (local) |
+| Coefficient de dissipation | $\Delta x / \Delta t$ (global) | $S_{\max} = \max(\lvert u_L \rvert + a_L, \lvert u_R \rvert + a_R)$ (local) |
 | Dépend du pas de temps | Oui | Non |
 | Type | Centré | Décentré (upwind) |
 | Dissipation | Maximale | Forte mais locale |
@@ -574,11 +574,11 @@ L'idée maîtresse est d'utiliser un **capteur de choc** basé sur la pression p
 
 Le capteur de choc est un indicateur adimensionnel basé sur la courbure de la pression :
 
-$$\nu_i = \frac{|p_{i+1} - 2p_i + p_{i-1}|}{p_{i+1} + 2p_i + p_{i-1}}$$
+$$\nu_i = \frac{\lvert p_{i+1} - 2p_i + p_{i-1} \rvert}{p_{i+1} + 2p_i + p_{i-1}}$$
 
 **Interprétation** :
 
-- Le **numérateur** $|p_{i+1} - 2p_i + p_{i-1}|$ est la valeur absolue de la différence seconde de la pression. Il est grand en présence d'un choc (forte variation de pression) et petit en zone lisse (pression variant linéairement ou quadratiquement).
+- Le **numérateur** $\lvert p_{i+1} - 2p_i + p_{i-1} \rvert$ est la valeur absolue de la différence seconde de la pression. Il est grand en présence d'un choc (forte variation de pression) et petit en zone lisse (pression variant linéairement ou quadratiquement).
 
 - Le **dénominateur** $p_{i+1} + 2p_i + p_{i-1}$ normalise l'indicateur par le niveau moyen de pression, rendant $\nu_i$ adimensionnel et indépendant de l'amplitude absolue.
 
@@ -603,7 +603,7 @@ $$\varepsilon^{(4)}_{i+1/2} = \max\bigl(0,\; \kappa_4 - \varepsilon^{(2)}_{i+1/2
 
 ### Termes de dissipation
 
-Les termes de dissipation font intervenir le rayon spectral local $\lambda_{i+1/2} = \frac{1}{2}(|u_i| + a_i + |u_{i+1}| + a_{i+1})$ :
+Les termes de dissipation font intervenir le rayon spectral local $\lambda_{i+1/2} = \frac{1}{2}(\lvert u_i \rvert + a_i + \lvert u_{i+1} \rvert + a_{i+1})$ :
 
 **Dissipation d'ordre 2** (active près des chocs) :
 
@@ -674,13 +674,13 @@ $$M_{1/2} = \mathcal{M}^+(M_L) + \mathcal{M}^-(M_R)$$
 
 ### Fonctions de splitting
 
-Les fonctions de splitting du Mach sont des polynômes de degré 4 qui assurent une transition lisse entre les régimes subsonique ($|M| < 1$) et supersonique ($|M| \geq 1$) :
+Les fonctions de splitting du Mach sont des polynômes de degré 4 qui assurent une transition lisse entre les régimes subsonique ($\lvert M \rvert < 1$) et supersonique ($\lvert M \rvert \geq 1$) :
 
-$$\mathcal{M}^{\pm}(M) = \begin{cases} \frac{1}{2}(M \pm |M|) & \text{si } |M| \geq 1 \\ \pm\frac{1}{4}(M \pm 1)^2 \pm \frac{1}{8}(M^2 - 1)^2 & \text{si } |M| < 1 \end{cases}$$
+$$\mathcal{M}^{\pm}(M) = \begin{cases} \frac{1}{2}(M \pm \lvert M \rvert) & \text{si } \lvert M \rvert \geq 1 \\ \pm\frac{1}{4}(M \pm 1)^2 \pm \frac{1}{8}(M^2 - 1)^2 & \text{si } \lvert M \rvert < 1 \end{cases}$$
 
 Les fonctions de splitting de la pression sont :
 
-$$\mathcal{P}^{\pm}(M) = \begin{cases} \frac{1}{2}(1 \pm \text{sign}(M)) & \text{si } |M| \geq 1 \\ \frac{1}{4}(M \pm 1)^2(2 \mp M) \pm \frac{3}{16}M(M^2 - 1)^2 & \text{si } |M| < 1 \end{cases}$$
+$$\mathcal{P}^{\pm}(M) = \begin{cases} \frac{1}{2}(1 \pm \text{sign}(M)) & \text{si } \lvert M \rvert \geq 1 \\ \frac{1}{4}(M \pm 1)^2(2 \mp M) \pm \frac{3}{16}M(M^2 - 1)^2 & \text{si } \lvert M \rvert < 1 \end{cases}$$
 
 ### Formule du flux
 

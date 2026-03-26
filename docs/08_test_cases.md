@@ -113,11 +113,11 @@ avec la discontinuite en $x_0 = 0.5$.
 
 **Configuration :** Domaine $[0, 1]$, conditions aux limites transmissives, $t_{\text{final}} = 0.5$ (temps long pour amplifier la diffusion), $\gamma = 1.4$.
 
-**Pourquoi ce cas est revelateur :** La dissipation numerique d'un flux sur l'onde de contact est proportionnelle a $|\tilde{\lambda}_2|$ pour Roe, ou au traitement de l'onde intermediaire pour HLL/HLLC. Ici $\lambda_2 = u = 0$, ce qui signifie :
+**Pourquoi ce cas est revelateur :** La dissipation numerique d'un flux sur l'onde de contact est proportionnelle a $\lvert \tilde{\lambda}_2 \rvert$ pour Roe, ou au traitement de l'onde intermediaire pour HLL/HLLC. Ici $\lambda_2 = u = 0$, ce qui signifie :
 
-- **Godunov, HLLC, Roe** : la dissipation sur l'onde de contact est proportionnelle a $|u| = 0$. Le contact reste **parfaitement raide** (zero diffusion).
+- **Godunov, HLLC, Roe** : la dissipation sur l'onde de contact est proportionnelle a $\lvert u \rvert = 0$. Le contact reste **parfaitement raide** (zero diffusion).
 - **HLL** : n'a pas d'onde de contact dans son modele. La dissipation est controlee par $S_L$ et $S_R$ qui sont non nuls ($S_L = -a$, $S_R = +a$). Le contact est **fortement etale**.
-- **Rusanov** : la dissipation est $S_{\max} = |u| + a = a > 0$. Meme diffusion que HLL.
+- **Rusanov** : la dissipation est $S_{\max} = \lvert u \rvert + a = a > 0$. Meme diffusion que HLL.
 
 **Ce que ce test verifie :**
 - Capacite du flux a resoudre l'onde de contact sans diffusion parasite.
@@ -296,7 +296,7 @@ L'etude de convergence en maillage est l'outil principal pour verifier qu'un sch
 Pour une variable $f$ (par exemple $\rho$), on mesure l'ecart entre la solution numerique $f_i$ et la solution exacte $f_i^{\text{exact}}$ a l'aide des normes suivantes :
 
 $$
-\|e\|_1 = \sum_{i=1}^{N} |f_i - f_i^{\text{exact}}| \, \Delta x
+\|e\|_1 = \sum_{i=1}^{N} \lvert f_i - f_i^{\text{exact}} \rvert \, \Delta x
 $$
 
 $$
@@ -304,7 +304,7 @@ $$
 $$
 
 $$
-\|e\|_\infty = \max_{1 \leq i \leq N} |f_i - f_i^{\text{exact}}|
+\|e\|_\infty = \max_{1 \leq i \leq N} \lvert f_i - f_i^{\text{exact}} \rvert
 $$
 
 La norme $L_1$ mesure l'erreur globale integree, la norme $L_2$ penalise davantage les grandes erreurs locales, et la norme $L_\infty$ capture l'erreur maximale ponctuelle.

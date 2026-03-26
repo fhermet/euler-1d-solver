@@ -98,11 +98,11 @@ Le facteur d'amplification $G(\theta)$ est un nombre complexe qui encode deux in
 
 ### Module : dissipation
 
-$$|G(\theta)| = \text{facteur d'amortissement}$$
+$$\lvert G(\theta) \rvert = \text{facteur d'amortissement}$$
 
-- $|G| = 1$ : pas d'amortissement (schema ideal).
-- $|G| < 1$ : le mode est amorti. Le schema est **dissipatif**.
-- $|G| > 1$ : le mode est amplifie. Le schema est **instable** pour ce mode.
+- $\lvert G \rvert = 1$ : pas d'amortissement (schema ideal).
+- $\lvert G \rvert < 1$ : le mode est amorti. Le schema est **dissipatif**.
+- $\lvert G \rvert > 1$ : le mode est amplifie. Le schema est **instable** pour ce mode.
 
 ### Phase : dispersion
 
@@ -162,21 +162,21 @@ ou $A_0 = \varepsilon$ est l'amplitude d'entree (verifiee par $\ell \cdot \varep
 
 **Etape 5 -- Module et phase.**
 
-$$|G| = \sqrt{\text{Re}(G)^2 + \text{Im}(G)^2}, \quad \varphi = \text{atan2}(\text{Im}(G),\, \text{Re}(G))$$
+$$\lvert G \rvert = \sqrt{\text{Re}(G)^2 + \text{Im}(G)^2}, \quad \varphi = \text{atan2}(\text{Im}(G),\, \text{Re}(G))$$
 
-**Etape 6 -- Post-traitement de la phase.** La phase est depliee avec `np.unwrap` pour eviter les sauts de $2\pi$. Le rapport de phase $\varphi_{\text{num}} / \varphi_{\text{exact}}$ est mis a `NaN` lorsque $|G| < 10^{-10}$ (mode trop amorti pour que la phase ait un sens physique) ou lorsque $|\varphi_{\text{exact}}| < 10^{-12}$ (mode quasi-stationnaire).
+**Etape 6 -- Post-traitement de la phase.** La phase est depliee avec `np.unwrap` pour eviter les sauts de $2\pi$. Le rapport de phase $\varphi_{\text{num}} / \varphi_{\text{exact}}$ est mis a `NaN` lorsque $\lvert G \rvert < 10^{-10}$ (mode trop amorti pour que la phase ait un sens physique) ou lorsque $\lvert \varphi_{\text{exact}} \rvert < 10^{-12}$ (mode quasi-stationnaire).
 
 ---
 
 ## 7.5 Interpretation des courbes
 
-### Courbe de dissipation $|G(\theta)|$
+### Courbe de dissipation $\lvert G(\theta) \rvert$
 
-- **Schema ideal** : $|G| = 1$ pour tout $\theta$ (courbe horizontale).
-- **Schemas d'ordre 1** (Rusanov, HLL, HLLC, Godunov) : $|G|$ chute fortement des les moyennes frequences. Ces schemas sont tres dissipatifs : ils amortissent significativement les ondes courtes. Cela lisse les discontinuites mais diffuse aussi les structures fines.
-- **Lax-Wendroff** : $|G| \approx 1$ sur une large plage de $\theta$. Le schema est peu dissipatif, ce qui preserv les ondes mais peut generer des **oscillations** pres des discontinuites (pas d'amortissement des hautes frequences parasites).
-- **Schemas d'ordre eleve** (MUSCL, WENO) : $|G|$ reste proche de 1 jusqu'a des $\theta$ moderes, puis chute pour les hautes frequences. Le compromis est meilleur : les ondes physiques sont preservees, et seules les frequences mal resolues sont amorties.
-- **Instabilite** : si $|G| > 1$ pour un $\theta$ donne, le mode est amplifie a chaque pas de temps. Cela indique un schema instable pour ce CFL.
+- **Schema ideal** : $\lvert G \rvert = 1$ pour tout $\theta$ (courbe horizontale).
+- **Schemas d'ordre 1** (Rusanov, HLL, HLLC, Godunov) : $\lvert G \rvert$ chute fortement des les moyennes frequences. Ces schemas sont tres dissipatifs : ils amortissent significativement les ondes courtes. Cela lisse les discontinuites mais diffuse aussi les structures fines.
+- **Lax-Wendroff** : $\lvert G \rvert \approx 1$ sur une large plage de $\theta$. Le schema est peu dissipatif, ce qui preserv les ondes mais peut generer des **oscillations** pres des discontinuites (pas d'amortissement des hautes frequences parasites).
+- **Schemas d'ordre eleve** (MUSCL, WENO) : $\lvert G \rvert$ reste proche de 1 jusqu'a des $\theta$ moderes, puis chute pour les hautes frequences. Le compromis est meilleur : les ondes physiques sont preservees, et seules les frequences mal resolues sont amorties.
+- **Instabilite** : si $\lvert G \rvert > 1$ pour un $\theta$ donne, le mode est amplifie a chaque pas de temps. Cela indique un schema instable pour ce CFL.
 - Une chute brutale a $\theta = \pi$ signifie que le schema ne resout que les basses frequences.
 
 ### Courbe de dispersion $\varphi_{\text{num}} / \varphi_{\text{exact}}$
@@ -184,17 +184,17 @@ $$|G| = \sqrt{\text{Re}(G)^2 + \text{Im}(G)^2}, \quad \varphi = \text{atan2}(\te
 - **Schema ideal** : rapport $= 1$ pour tout $\theta$.
 - **Rapport $> 1$** a un $\theta$ donne : l'onde numerique se propage plus vite que la vitesse exacte. Cela produit une **erreur de phase avancee** (l'onde arrive trop tot).
 - **Rapport $< 1$** : l'onde se propage trop lentement (**erreur de phase retardee**).
-- **Lax-Wendroff** : $|G|$ est proche de 1, mais le rapport de phase s'ecarte significativement de 1 aux hautes frequences. C'est la signature d'un schema **dispersif** : il ne dissipe pas les ondes mais les fait voyager a la mauvaise vitesse, ce qui genere des oscillations en amont et en aval des discontinuites.
+- **Lax-Wendroff** : $\lvert G \rvert$ est proche de 1, mais le rapport de phase s'ecarte significativement de 1 aux hautes frequences. C'est la signature d'un schema **dispersif** : il ne dissipe pas les ondes mais les fait voyager a la mauvaise vitesse, ce qui genere des oscillations en amont et en aval des discontinuites.
 - **Schemas d'ordre eleve** : le rapport de phase reste proche de 1 sur une plage de $\theta$ d'autant plus large que l'ordre est eleve.
 
 ### Signatures typiques
 
 | Schema | Dissipation | Dispersion |
 |--------|-------------|------------|
-| Ordre 1 (Rusanov, Godunov...) | $\|G\|$ chute fortement | Phase peu pertinente (mode trop amorti) |
-| Lax-Wendroff | $\|G\| \approx 1$ | Fort ecart de phase aux hautes frequences |
-| MUSCL + limiteur | $\|G\|$ proche de 1 en basses freq. | Bon rapport de phase en basses freq. |
-| WENO3/WENO5 | $\|G\| \approx 1$ jusqu'a $\theta$ modere | Rapport de phase $\approx 1$ sur une large plage |
+| Ordre 1 (Rusanov, Godunov...) | $\lvert G \rvert$ chute fortement | Phase peu pertinente (mode trop amorti) |
+| Lax-Wendroff | $\lvert G \rvert \approx 1$ | Fort ecart de phase aux hautes frequences |
+| MUSCL + limiteur | $\lvert G \rvert$ proche de 1 en basses freq. | Bon rapport de phase en basses freq. |
+| WENO3/WENO5 | $\lvert G \rvert \approx 1$ jusqu'a $\theta$ modere | Rapport de phase $\approx 1$ sur une large plage |
 
 ---
 
@@ -225,7 +225,7 @@ Calcule le facteur d'amplification $G(\theta)$ pour un schema donne en utilisant
 Le dictionnaire retourne contient :
 
 - `theta` : tableau des nombres d'onde reduits $\theta = 2\pi m / N$.
-- `abs_G` : tableau des $|G(\theta)|$ (dissipation).
+- `abs_G` : tableau des $\lvert G(\theta) \rvert$ (dissipation).
 - `phase_ratio` : tableau des $\varphi_{\text{num}} / \varphi_{\text{exact}}$ (dispersion, `NaN` si le mode est trop amorti).
 
 ---

@@ -96,7 +96,7 @@ $$
 s_L = u_L - a_L \sqrt{\frac{\gamma + 1}{2\gamma} \frac{p^*}{p_L} + \frac{\gamma - 1}{2\gamma}}
 $$
 
-La quantité sous la racine est toujours supérieure à 1 quand $p^* > p_L$ (compression), de sorte que $|s_L - u_L| > a_L$ : **le choc se propage plus vite que le son** dans le milieu non perturbé.
+La quantité sous la racine est toujours supérieure à 1 quand $p^* > p_L$ (compression), de sorte que $\lvert s_L - u_L \rvert > a_L$ : **le choc se propage plus vite que le son** dans le milieu non perturbé.
 
 Pour un choc droit (onde 3) reliant $\mathbf{U}_R^*$ à $\mathbf{U}_R$ :
 
@@ -354,7 +354,7 @@ Elle s'obtient en dérivant $(p/p_K)^{(\gamma-1)/(2\gamma)}$ par rapport à $p$,
 Le critère d'arrêt est un critère **relatif** :
 
 $$
-\frac{|p^{(k+1)} - p^{(k)}|}{\max(1, |p^{(k+1)}|)} < \varepsilon
+\frac{\lvert p^{(k+1)} - p^{(k)} \rvert}{\max(1, \lvert p^{(k+1)} \rvert)} < \varepsilon
 $$
 
 avec $\varepsilon = 10^{-10}$ par défaut. La convergence est **quadratique** (typique de Newton) : le nombre de décimales exactes double à chaque itération. En pratique, 3 à 6 itérations suffisent.

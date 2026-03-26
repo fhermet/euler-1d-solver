@@ -96,7 +96,7 @@ $$\varphi(r) = \max\bigl(0,\, \min(1, r)\bigr)$$
 
 #### Van Leer
 
-$$\varphi(r) = \frac{r + |r|}{1 + |r|}$$
+$$\varphi(r) = \frac{r + \lvert r \rvert}{1 + \lvert r \rvert}$$
 
 - **Propriétés** : limiteur **différentiable** (lisse en $r = 0$), situé au milieu de la région de Sweby. Bon compromis entre dissipation et précision.
 - **Avantages** : pas de discontinuité dans la fonction limiteur, ce qui favorise la convergence des solveurs implicites. Excellent compromis dissipation/précision pour la plupart des applications.
@@ -134,7 +134,7 @@ $$\varphi(r) = \begin{cases} \dfrac{r^2 + r}{r^2 + 1} & \text{si } r > 0 \\ 0 & 
 |---|---|---|---|---|---|
 | Minmod | $\max(0, \min(1, r))$ | Maximale | Non | Borne inférieure | Aucun |
 | Van Albada | $(r^2+r)/(r^2+1)$ | Élevée | **Oui** | Bas (entre minmod et van Leer) | Aucun |
-| Van Leer | $(r+\|r\|)/(1+\|r\|)$ | Modérée | **Oui** | Centre | Aucun |
+| Van Leer | $(r+\lvert r \rvert)/(1+\lvert r \rvert)$ | Modérée | **Oui** | Centre | Aucun |
 | MC | $\max(0, \min(2r, \frac{1+r}{2}, 2))$ | Faible | Non | Centre-haut | Faible |
 | Superbee | $\max(0, \max(\min(2r,1), \min(r,2)))$ | Minimale | Non | Borne supérieure | **Élevé** |
 
@@ -178,7 +178,7 @@ $$DD_i = D_{i+1} - D_i = \mathbf{W}_{i+2} - 2\mathbf{W}_{i+1} + \mathbf{W}_i$$
 
 Le stencil est choisi en comparant les secondes différences de part et d'autre :
 
-$$\text{Si } |DD_{i-1}| \leq |DD_i| \implies \text{stencil gauche (pente } D_{i-1}\text{)}$$
+$$\text{Si } \lvert DD_{i-1} \rvert \leq \lvert DD_i \rvert \implies \text{stencil gauche (pente } D_{i-1}\text{)}$$
 $$\text{Sinon} \implies \text{stencil droit (pente } D_i\text{)}$$
 
 L'idée est que la seconde différence la plus petite en valeur absolue correspond à la zone la plus lisse.
@@ -275,7 +275,7 @@ avec $\varepsilon = 10^{-6}$, petit paramètre pour éviter la division par zér
 
 Pour corriger la perte de précision aux points critiques, Borges et al. [Borges et al., 2008] proposent un indicateur **global** :
 
-$$\tau = |\beta_1 - \beta_0|$$
+$$\tau = \lvert \beta_1 - \beta_0 \rvert$$
 
 Les poids WENO-Z sont :
 
@@ -354,7 +354,7 @@ avec $\varepsilon = 10^{-6}$.
 
 L'indicateur global pour WENO5 est :
 
-$$\tau_5 = |\beta_0 - \beta_2|$$
+$$\tau_5 = \lvert \beta_0 - \beta_2 \rvert$$
 
 Les poids sont :
 
@@ -362,7 +362,7 @@ $$\alpha_k = d_k \left(1 + \left(\frac{\tau_5}{\beta_k + \varepsilon}\right)^2\r
 
 avec $\varepsilon = \Delta x^2$.
 
-L'indicateur $\tau_5 = |\beta_0 - \beta_2|$ compare les stencils les plus éloignés, fournissant une mesure de la variation à grande échelle. En zone lisse, $\tau_5$ est d'ordre $O(\Delta x^5)$ alors que les $\beta_k$ sont d'ordre $O(\Delta x^2)$, ce qui permet aux poids de retrouver leurs valeurs optimales avec une erreur suffisamment petite pour préserver l'ordre 5.
+L'indicateur $\tau_5 = \lvert \beta_0 - \beta_2 \rvert$ compare les stencils les plus éloignés, fournissant une mesure de la variation à grande échelle. En zone lisse, $\tau_5$ est d'ordre $O(\Delta x^5)$ alors que les $\beta_k$ sont d'ordre $O(\Delta x^2)$, ce qui permet aux poids de retrouver leurs valeurs optimales avec une erreur suffisamment petite pour préserver l'ordre 5.
 
 ### Reconstructions polynomiales
 
