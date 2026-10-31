@@ -1,11 +1,10 @@
 """Computations behind the finite-volume walkthrough page.
 
-The page follows one time step of the solver on the Sod shock tube, cell by
-cell: cell averages, reconstruction at the interfaces, local Riemann
-problems, numerical fluxes, cell update and Runge-Kutta stages.  Every
-quantity here comes from the solver's own functions (reconstruction, flux,
-``_rk_step``, exact Riemann solver), so that what the page shows is what the
-solver computes.  No Streamlit in this module.
+Chapter 2 of the walkthrough page ("et pour Euler ?") works on the Sod
+shock tube: wave structure of the Riemann problem at the central face, the
+wave model of each flux, and runs of first-order schemes.  Every quantity
+comes from the solver's own functions (reconstruction, fluxes, _rk_step,
+exact Riemann solver).  No Streamlit in this module.
 """
 
 from __future__ import annotations
@@ -16,10 +15,9 @@ import numpy as np
 
 from euler1d.boundary import apply_boundary_conditions
 from euler1d.config import GasProperties, SimulationConfig
-from euler1d.physics import compute_flux, conservative_to_primitive, sound_speed
+from euler1d.physics import conservative_to_primitive, sound_speed
 from euler1d.riemann import _vacuum_will_form, solve_riemann
 from euler1d.schemes.base import NumericalScheme
-from euler1d.schemes.flux.godunov import Godunov
 from euler1d.schemes.flux.hll import davis_speeds
 from euler1d.schemes.flux.hllc import contact_speed
 from euler1d.schemes.flux.roe import roe_eigenvalues
@@ -72,91 +70,9 @@ def interface_states(
     return U_ext[:, g - 1 : g - 1 + n_intf], U_ext[:, g : g + n_intf]
 
 
-def flat_cells(
-    U: np.ndarray, scheme: NumericalScheme, gamma: float, dx: float, var: int
-) -> np.ndarray:
-    """Cells where the reconstruction cancelled a visible slope (limiter,
-    extremum, discontinuity), for primitive variable *var* (0 rho, 1 u, 2 p).
-
-    A cell is flagged when its neighbours differ by a visible amount (more
-    than 1/1000 of the range of the variable) and the reconstructed slope
-    keeps less than 1 % of that difference.  Differences at round-off level,
-    which also make the limiter cancel the slope, are not flagged.  All
-    False without reconstruction.
-    """
-    n = U.shape[1]
-    if not isinstance(scheme, ReconstructedScheme):
-        return np.zeros(n, dtype=bool)
-    UL, UR = interface_states(U, scheme, gamma, dx)
-    left_face = np.array(conservative_to_primitive(UR[:, :-1], gamma))[var]
-    right_face = np.array(conservative_to_primitive(UL[:, 1:], gamma))[var]
-    W = np.array(conservative_to_primitive(U, gamma))[var]
-    W_ext = np.concatenate([W[:1], W, W[-1:]])
-    neighbours = np.maximum(np.abs(W_ext[1:-1] - W_ext[:-2]), np.abs(W_ext[2:] - W_ext[1:-1]))
-    visible = 1e-3 * max(float(np.ptp(W)), 1e-300)
-    return (neighbours > visible) & (np.abs(right_face - left_face) < 0.01 * neighbours)
-
-
-def default_interface(UL: np.ndarray, UR: np.ndarray) -> int:
-    """Interface with the largest density jump."""
-    return int(np.argmax(np.abs(UR[0] - UL[0])))
-
-
-@dataclass
-class FluxBreakdown:
-    numerical: np.ndarray    # (3, N+1) flux of the scheme
-    centred: np.ndarray      # 0.5 (F(UL) + F(UR))
-    dissipation: np.ndarray  # centred - numerical
-    godunov: np.ndarray      # exact Riemann (Godunov) flux of the same states
-
-
-def flux_breakdown(
-    UL: np.ndarray, UR: np.ndarray, scheme: NumericalScheme,
-    gas: GasProperties, dx: float, dt: float,
-) -> FluxBreakdown:
-    numerical = scheme.compute_riemann_flux(UL, UR, gas, dx, dt)
-    centred = 0.5 * (compute_flux(UL, gas.gamma) + compute_flux(UR, gas.gamma))
-    godunov = Godunov().compute_riemann_flux(UL, UR, gas, dx, dt)
-    return FluxBreakdown(numerical, centred, centred - numerical, godunov)
-
-
-def stage_update(U: np.ndarray, F: np.ndarray, dt: float, dx: float) -> np.ndarray:
-    """One forward Euler update: U - (dt/dx) (F_{i+1/2} - F_{i-1/2})."""
-    return U - (dt / dx) * (F[:, 1:] - F[:, :-1])
-
-
-@dataclass
-class Balance:
-    change: np.ndarray    # (3,) change of the totals dx * sum(U)
-    boundary: np.ndarray  # (3,) dt * (flux in at the left - flux out at the right)
-
-
-def global_balance(
-    U: np.ndarray, U_new: np.ndarray, F: np.ndarray, dt: float, dx: float
-) -> Balance:
-    return Balance(change=dx * (U_new - U).sum(axis=1), boundary=dt * (F[:, 0] - F[:, -1]))
-
-
 def _rhs(scheme: NumericalScheme, config: SimulationConfig, dt: float):
     gas, dx = config.gas, config.mesh.dx
     return lambda v: _compute_rhs(v, scheme, gas, dx, dt, _BC, dt)
-
-
-def rk_stages(
-    U: np.ndarray, scheme: NumericalScheme, config: SimulationConfig,
-    rk: str | None, dt: float,
-) -> list[np.ndarray]:
-    """States at which the Runge-Kutta method evaluates the spatial operator,
-    followed by the final state of the step."""
-    recorded: list[np.ndarray] = []
-    rhs = _rhs(scheme, config, dt)
-
-    def recording_rhs(v):
-        recorded.append(v.copy())
-        return rhs(v)
-
-    final = _rk_step(U, select_time_integrator(scheme, rk), recording_rhs)
-    return recorded + [final]
 
 
 @dataclass
@@ -243,3 +159,20 @@ def model_waves(
     if flux in ("roe", "roe-nc"):
         return [float(lam[0]) for lam in roe_eigenvalues(UL, UR, gas)]
     raise ValueError(f"No wave model for flux {flux!r}")
+
+
+SOD_LEFT, SOD_RIGHT = (1.0, 0.0, 1.0), (0.125, 0.0, 0.1)
+
+
+def contact_cells(rho: np.ndarray, x: np.ndarray, t: float, gamma: float = 1.4) -> int:
+    """Number of cells across which the Sod contact is spread at time t.
+
+    Cells within 0.1 of the exact contact (x = 0.5 + u* t) whose density lies
+    strictly between the two star densities, trimmed by 10 % of the jump at
+    each end.
+    """
+    _, u_star, rho_star_L, rho_star_R = solve_riemann(*SOD_LEFT, *SOD_RIGHT, gamma)
+    band = 0.1 * (rho_star_L - rho_star_R)
+    near = np.abs(x - (0.5 + u_star * t)) < 0.1
+    inside = (rho > rho_star_R + band) & (rho < rho_star_L - band)
+    return int(np.count_nonzero(near & inside))

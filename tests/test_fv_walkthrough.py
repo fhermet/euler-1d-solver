@@ -4,35 +4,14 @@ import numpy as np
 import pytest
 
 from euler1d.boundary import apply_boundary_conditions
-from euler1d.fv_walkthrough import (
-    advance, default_interface, flat_cells, flux_breakdown, global_balance,
-    interface_states, rk_stages, sod_setup, stage_update, time_step,
-)
+from euler1d.fv_walkthrough import advance, interface_states, sod_setup, time_step
 from euler1d.schemes import get_scheme
-from euler1d.solver import _compute_rhs, _rk_step, initial_state, run_simulation
+from euler1d.solver import initial_state, run_simulation
 
 
 def _setup(name, n_cells=16, cfl=0.9):
     cfg = sod_setup(n_cells, cfl)
     return cfg, get_scheme(name), initial_state(cfg)[1]
-
-
-def test_balance_equals_boundary_fluxes():
-    cfg, scheme, U = _setup("muscl-hllc")
-    gas, dx = cfg.gas, cfg.mesh.dx
-    ts = time_step(U, scheme, cfg)
-    f = flux_breakdown(*interface_states(U, scheme, gas.gamma, dx), scheme, gas, dx, ts.dt)
-    b = global_balance(U, stage_update(U, f.numerical, ts.dt, dx), f.numerical, ts.dt, dx)
-    np.testing.assert_allclose(b.change, b.boundary, rtol=0, atol=1e-13)
-    assert b.change[0] == pytest.approx(0.0, abs=1e-14)    # mass: u = 0 at both ends
-    assert abs(b.change[1]) > 1e-3                         # momentum: p = 1 and 0.1
-
-
-def test_flux_is_centred_minus_dissipation():
-    cfg, scheme, U = _setup("muscl-hll")
-    UL, UR = interface_states(U, scheme, cfg.gas.gamma, cfg.mesh.dx)
-    f = flux_breakdown(UL, UR, scheme, cfg.gas, cfg.mesh.dx, 1e-3)
-    np.testing.assert_allclose(f.centred - f.dissipation, f.numerical, atol=1e-14)
 
 
 @pytest.mark.parametrize("name", ["muscl-hllc", "weno5-hll", "hllc"])
@@ -43,16 +22,6 @@ def test_interface_states_are_those_of_the_scheme(name):
     U_ext = apply_boundary_conditions(U, "transmissive", scheme.n_ghost)
     np.testing.assert_array_equal(scheme.compute_riemann_flux(UL, UR, gas, dx, 1e-3),
                                   scheme.compute_fluxes(U_ext, gas, dx, 1e-3))
-
-
-@pytest.mark.parametrize("rk,evaluations", [("RK1", 1), ("RK2", 2), ("RK3", 3), ("RK4", 4), ("RK5", 6)])
-def test_rk_stage_counts(rk, evaluations):
-    cfg, scheme, U = _setup("muscl-hllc")
-    dt = time_step(U, scheme, cfg).dt
-    stages = rk_stages(U, scheme, cfg, rk, dt)
-    assert len(stages) - 1 == evaluations
-    rhs = lambda v: _compute_rhs(v, scheme, cfg.gas, cfg.mesh.dx, dt, "transmissive", dt)
-    np.testing.assert_array_equal(stages[-1], _rk_step(U, rk, rhs))
 
 
 def test_advance_matches_run_simulation():
@@ -81,15 +50,6 @@ def test_time_step_caps_cfl():
     assert ts.cfl == 0.9
     assert ts.i_max < 8                       # left state: largest sound speed
     assert ts.dt == pytest.approx(0.9 * cfg.mesh.dx / ts.s_max)
-
-
-def test_odd_mesh_mixed_cell():
-    # With 15 cells the discontinuity sits in the middle of cell 7.
-    cfg, scheme, U = _setup("muscl-hllc", n_cells=15)
-    UL, UR = interface_states(U, scheme, cfg.gas.gamma, cfg.mesh.dx)
-    assert default_interface(UL, UR) in (7, 8)
-    flat = flat_cells(U, scheme, cfg.gas.gamma, cfg.mesh.dx, 0)
-    assert flat.shape == (15,) and flat.dtype == bool
 
 
 from euler1d.config import GasProperties
@@ -127,17 +87,14 @@ def test_model_waves_per_flux():
     assert model_waves("ausm+-up", UL, UR, gas) is None
 
 
-def test_flat_cells_ignore_invisible_differences():
-    # After a few steps, round-off (1e-15) next to the rarefaction foot
-    # (1e-9) makes the limiter cancel slopes nobody can see: not flagged.
-    cfg, scheme, U = _setup("muscl-hllc")
-    U = advance(U, scheme, cfg, None, 5).U
-    flat = flat_cells(U, scheme, cfg.gas.gamma, cfg.mesh.dx, 0)
-    assert not flat[1] and not flat[14]
-
-
-def test_flat_cells_mark_the_cells_next_to_the_jump():
-    cfg, _, U = _setup("muscl-hllc")
-    scheme = get_scheme("muscl-hllc", limiter="minmod")
-    flat = flat_cells(U, scheme, cfg.gas.gamma, cfg.mesh.dx, 0)
-    assert flat[7] and flat[8] and flat.sum() == 2
+def test_contact_cells_order():
+    # The fewer waves a solver models, the wider the contact (screen 8).
+    from dataclasses import replace
+    from euler1d.fv_walkthrough import contact_cells
+    cfg = sod_setup(100, 0.9)
+    cfg = replace(cfg, time=replace(cfg.time, t_final=0.2))
+    width = {}
+    for name in ("rusanov", "hll", "hllc"):
+        U = run_simulation(cfg, get_scheme(name), n_snapshots=0).snapshots[-1]
+        width[name] = contact_cells(U[0], (np.arange(100) + 0.5) / 100, 0.2)
+    assert width["hllc"] < width["hll"] and width["hllc"] < width["rusanov"]

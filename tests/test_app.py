@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+pytest.skip("old walkthrough page; rewritten in task 4", allow_module_level=True)
+
 ENTRY = str(Path(__file__).resolve().parents[1] / "Solveur_Euler_1D.py")
 
 

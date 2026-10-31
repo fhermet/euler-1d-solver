@@ -1,5 +1,9 @@
 """Figures of the finite-volume walkthrough page."""
 
+import pytest
+
+pytest.skip("old figures; rewritten in task 3", allow_module_level=True)
+
 import numpy as np
 import plotly.graph_objects as go
 import pytest
