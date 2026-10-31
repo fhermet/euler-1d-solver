@@ -267,15 +267,18 @@ def shu_osher(n_cells: int = 200) -> SimulationConfig:
         p = np.where(x < x_shock, p_L, 1.0)
         return rho, u, p
 
-    # Reference solution cache (computed once at high resolution)
+    # Reference solutions at high resolution, one per requested time (each
+    # costs a few seconds; the time must be part of the key).
     _ref_cache = {}
 
     def exact_fn(x, t, gamma):
-        if "rho" not in _ref_cache:
+        if t == 0.0:
+            return init_fn(x, gamma)
+        key = (float(t), float(gamma))
+        if key not in _ref_cache:
             from euler1d.solver import run_simulation
             from euler1d.schemes import get_scheme
             from euler1d.physics import conservative_to_primitive
-
             ref_config = SimulationConfig(
                 gas=GasProperties(gamma=gamma),
                 mesh=MeshConfig(x_min=-5.0, x_max=5.0, n_cells=2000),
@@ -284,18 +287,14 @@ def shu_osher(n_cells: int = 200) -> SimulationConfig:
                 bc_type="transmissive",
             )
             ref_result = run_simulation(ref_config, get_scheme("wenoz5-hllc"))
-            ref_rho, ref_u, ref_p = conservative_to_primitive(
+            _ref_cache[key] = (ref_result.x, *conservative_to_primitive(
                 ref_result.snapshots[-1], gamma
-            )
-            _ref_cache["x"] = ref_result.x
-            _ref_cache["rho"] = ref_rho
-            _ref_cache["u"] = ref_u
-            _ref_cache["p"] = ref_p
-
+            ))
+        x_ref, rho_ref, u_ref, p_ref = _ref_cache[key]
         # Interpolate reference onto requested grid
-        rho = np.interp(x, _ref_cache["x"], _ref_cache["rho"])
-        u = np.interp(x, _ref_cache["x"], _ref_cache["u"])
-        p = np.interp(x, _ref_cache["x"], _ref_cache["p"])
+        rho = np.interp(x, x_ref, rho_ref)
+        u = np.interp(x, x_ref, u_ref)
+        p = np.interp(x, x_ref, p_ref)
         return rho, u, p
 
     return SimulationConfig(

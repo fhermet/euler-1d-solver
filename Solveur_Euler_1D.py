@@ -70,6 +70,9 @@ TEST_CASES = {
     "Isentropic wave (nonlinear)": isentropic_wave,
 }
 
+# Cases whose reference is a fine-mesh computation, not an exact solution.
+REFERENCE_CASES = {"Shu-Osher": "Reference (WENO5-Z, 2000 cells)"}
+
 SMOOTH_CASES = {"Entropy wave", "Acoustic wave", "Isentropic wave (nonlinear)"}
 
 
@@ -183,8 +186,9 @@ TEST_CASE_INFO = {
         "structure": (
             "**Solution structure:** main shock on the right, "
             "followed by a complex zone of high-frequency oscillations. "
-            "MUSCL smooths out these oscillations, WENO5 captures them faithfully. "
-            "This is the best case to demonstrate the benefit of high-order schemes."
+            "Compare how much of these oscillations MUSCL and WENO5 keep at "
+            "N = 200 and N = 400. The black curve is a fine-mesh computation, "
+            "not an exact solution."
         ),
     },
     "Entropy wave": {
@@ -467,6 +471,7 @@ def _make_profile_figure(
     dfs: list[tuple[str, pd.DataFrame]],
     exact: pd.DataFrame,
     title: str = "",
+    exact_label: str = "Exact",
 ) -> go.Figure:
     """Create 3 subplots (rho, u, p) comparing numerical vs exact."""
     variables = ("rho", "u", "p")
@@ -481,7 +486,7 @@ def _make_profile_figure(
         fig.add_trace(go.Scatter(
             x=exact["x"], y=exact[var], mode="lines",
             line=dict(color="black", width=2),
-            name="Exact", legendgroup="Exact", showlegend=showlegend,
+            name=exact_label, legendgroup="Exact", showlegend=showlegend,
         ), row=1, col=j)
         for i, (name, df) in enumerate(dfs):
             fig.add_trace(go.Scatter(
@@ -615,6 +620,9 @@ with st.sidebar:
         if is_smooth:
             gamma = 1.4
             st.info("Gamma fixed at 1.4 for smooth cases")
+        elif test_case_name in REFERENCE_CASES:
+            gamma = 1.4
+            st.info("Gamma fixed at 1.4: the left state is a Mach 3 shock only for γ = 1.4")
         else:
             gamma = st.slider("Gamma", 1.1, 2.0, 1.4, step=0.05)
         recon_variables = st.selectbox(
@@ -703,6 +711,7 @@ with tab1:
             fig = _make_profile_figure(
                 dfs_list, exact,
                 title=f"{test_case_name} — N={n_cells}, CFL={cfl}",
+                exact_label=REFERENCE_CASES.get(test_case_name, "Exact"),
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -800,7 +809,15 @@ with tab1:
                     "coarse meshes, where the asymptotic regime is not reached yet; "
                     "the local orders below show whether it settles."
                 )
-                if discontinuous_note:
+                if test_case_name in REFERENCE_CASES:
+                    st.warning(
+                        "The errors are measured against a fine-mesh computation "
+                        "(WENO5-Z + HLLC, 2000 cells), not an exact solution: these "
+                        "orders do not measure convergence. WENO5-Z + HLLC is compared "
+                        "with itself, and the finest mesh is only 2.5 times coarser "
+                        "than the reference."
+                    )
+                elif discontinuous_note:
                     st.info(discontinuous_note)
                 with st.expander("Errors and local orders between successive meshes"):
                     st.dataframe(pd.DataFrame(local_rows), width="stretch", hide_index=True)
@@ -865,7 +882,13 @@ with tab4:
     dx = mesh.dx
     x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
 
-    exact_t = _compute_exact_at_time(config, selected_time)
+    # A fine-mesh reference costs seconds per time: show it at the final time only.
+    show_exact = test_case_name not in REFERENCE_CASES or selected_time >= t_final
+    exact_t = _compute_exact_at_time(config, selected_time) if show_exact else None
+    if not show_exact:
+        st.caption(
+            f"{REFERENCE_CASES[test_case_name]} shown at the final time only."
+        )
 
     variables = ("rho", "u", "p")
     num_arrays = (rho_num, u_num, p_num)
@@ -878,11 +901,13 @@ with tab4:
 
     for j, (var, num_data) in enumerate(zip(variables, num_arrays), 1):
         showlegend = j == 1
-        fig.add_trace(go.Scatter(
-            x=exact_t["x"], y=exact_t[var], mode="lines",
-            line=dict(color="black", width=2),
-            name="Exact", legendgroup="Exact", showlegend=showlegend,
-        ), row=1, col=j)
+        if exact_t is not None:
+            fig.add_trace(go.Scatter(
+                x=exact_t["x"], y=exact_t[var], mode="lines",
+                line=dict(color="black", width=2),
+                name=REFERENCE_CASES.get(test_case_name, "Exact"),
+                legendgroup="Exact", showlegend=showlegend,
+            ), row=1, col=j)
         fig.add_trace(go.Scatter(
             x=x, y=num_data, mode="lines+markers",
             line=dict(color=COLORS[0], width=1.5),
