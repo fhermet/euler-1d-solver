@@ -272,6 +272,12 @@ def run_simulation(
     tc = config.time
     prob = config.problem
 
+    if mesh.n_cells < scheme.n_ghost:
+        raise ValueError(
+            f"{scheme.name} needs {scheme.n_ghost} ghost cells per side and at "
+            f"least as many interior cells; got n_cells={mesh.n_cells}"
+        )
+
     dx = mesh.dx
     x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
 
@@ -317,6 +323,7 @@ def run_simulation(
             stacklevel=3,
         )
 
+    cfl_warned = False
     while t < t_final:
         # Compute time step
         with np.errstate(invalid="ignore"):
@@ -328,6 +335,15 @@ def run_simulation(
             s_max = 1e-14
         if tc.dt_fixed is not None:
             dt = tc.dt_fixed
+            cfl_eff = dt * s_max / dx
+            if cfl_eff > 1.0 and not cfl_warned:
+                cfl_warned = True
+                warnings.warn(
+                    f"dt_fixed={dt:.3e} gives CFL={cfl_eff:.2f} > 1 at t={t:.3e}: "
+                    f"the explicit scheme is expected to be unstable.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
         else:
             dt = tc.cfl * dx / s_max
 

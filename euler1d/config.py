@@ -22,6 +22,9 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 
+BC_TYPES = ("transmissive", "reflective", "periodic")
+
+
 @dataclass(frozen=True)
 class GasProperties:
     """Thermodynamic properties of a perfect gas.
@@ -36,6 +39,10 @@ class GasProperties:
     """
 
     gamma: float = 1.4
+
+    def __post_init__(self) -> None:
+        if not self.gamma > 1.0:
+            raise ValueError(f"gamma must be > 1, got {self.gamma}")
 
     @property
     def gm1(self) -> float:
@@ -64,6 +71,12 @@ class MeshConfig:
     x_max: float
     n_cells: int
 
+    def __post_init__(self) -> None:
+        if self.n_cells < 1:
+            raise ValueError(f"n_cells must be >= 1, got {self.n_cells}")
+        if not self.x_max > self.x_min:
+            raise ValueError(f"x_max ({self.x_max}) must exceed x_min ({self.x_min})")
+
     @property
     def dx(self) -> float:
         return (self.x_max - self.x_min) / self.n_cells
@@ -88,6 +101,14 @@ class TimeConfig:
     cfl: float = 0.9
     dt_fixed: float | None = None
 
+    def __post_init__(self) -> None:
+        if not self.t_final > 0.0:
+            raise ValueError(f"t_final must be > 0, got {self.t_final}")
+        if not self.cfl > 0.0:
+            raise ValueError(f"cfl must be > 0, got {self.cfl}")
+        if self.dt_fixed is not None and not self.dt_fixed > 0.0:
+            raise ValueError(f"dt_fixed must be > 0, got {self.dt_fixed}")
+
 
 @dataclass(frozen=True)
 class PrimitiveState:
@@ -110,6 +131,12 @@ class PrimitiveState:
     rho: float
     u: float
     p: float
+
+    def __post_init__(self) -> None:
+        if not (self.rho > 0.0 and self.p > 0.0):
+            raise ValueError(
+                f"density and pressure must be > 0, got rho={self.rho}, p={self.p}"
+            )
 
 
 @dataclass(frozen=True)
@@ -193,3 +220,16 @@ class SimulationConfig:
         )
     )
     bc_type: str = "transmissive"
+
+    def __post_init__(self) -> None:
+        if self.bc_type not in BC_TYPES:
+            raise ValueError(
+                f"Unknown boundary condition {self.bc_type!r}; expected one of {BC_TYPES}"
+            )
+        if isinstance(self.problem, RiemannProblem) and not (
+            self.mesh.x_min < self.problem.x_discontinuity < self.mesh.x_max
+        ):
+            raise ValueError(
+                f"x_discontinuity={self.problem.x_discontinuity} lies outside the "
+                f"domain [{self.mesh.x_min}, {self.mesh.x_max}]"
+            )
