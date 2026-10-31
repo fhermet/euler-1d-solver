@@ -24,14 +24,17 @@ from euler1d.results import (
     errors_at_round_off,
     estimate_order,
     exact_cell_averages,
+    expected_order,
+    local_orders,
 )
 from euler1d.schemes import get_scheme
-from euler1d.solver import run_simulation
+from euler1d.solver import run_simulation, select_time_integrator
 from ui_common import (
     COLORS,
     MARKERS,
     THESIS_LAYOUT,
     _LEGEND_COMMON,
+    documentation_sidebar,
     scheme_selector_multi,
     scheme_selector_single,
     thesis_axis,
@@ -45,6 +48,7 @@ from euler1d.test_cases import (
     near_vacuum,
     shu_osher,
     sod_shock_tube,
+    sonic_rarefaction,
     stationary_contact,
     two_shocks,
 )
@@ -55,6 +59,7 @@ from euler1d.test_cases import (
 
 TEST_CASES = {
     "Sod shock tube": sod_shock_tube,
+    "Sonic rarefaction (Toro 1)": sonic_rarefaction,
     "Lax": lax_test,
     "Double rarefaction": double_rarefaction,
     "Stationary contact": stationary_contact,
@@ -65,6 +70,9 @@ TEST_CASES = {
     "Acoustic wave": acoustic_wave,
     "Isentropic wave (nonlinear)": isentropic_wave,
 }
+
+# Cases whose reference is a fine-mesh computation, not an exact solution.
+REFERENCE_CASES = {"Shu-Osher": "Reference (WENO5-Z, 2000 cells)"}
 
 SMOOTH_CASES = {"Entropy wave", "Acoustic wave", "Isentropic wave (nonlinear)"}
 
@@ -83,6 +91,23 @@ TEST_CASE_INFO = {
         "structure": (
             "**Solution structure:** rarefaction wave on the left, "
             "contact discontinuity in the center, shock wave on the right."
+        ),
+    },
+    "Sonic rarefaction (Toro 1)": {
+        "description": (
+            "Toro's test 1, a modified Sod problem: left state "
+            "$(\\rho, u, p) = (1, 0.75, 1)$, right state $(0.125, 0, 0.1)$, "
+            "discontinuity at $x = 0.3$. The left rarefaction is transonic: "
+            "the characteristic speed $u - a$ changes sign inside the fan. "
+            "Compare Roe with and without entropy fix: without it, Roe keeps a "
+            "jump inside the fan, an expansion shock. It satisfies the "
+            "Rankine-Hugoniot relations but not the entropy condition, and it "
+            "does not shrink when N grows (jump in $\\rho$ of 0.13, 0.12, 0.12 "
+            "for N = 100, 200, 400). See docs §2.2 and §8.11."
+        ),
+        "structure": (
+            "**Solution structure:** transonic rarefaction on the left, contact "
+            "discontinuity, shock wave on the right."
         ),
     },
     "Lax": {
@@ -162,8 +187,9 @@ TEST_CASE_INFO = {
         "structure": (
             "**Solution structure:** main shock on the right, "
             "followed by a complex zone of high-frequency oscillations. "
-            "MUSCL smooths out these oscillations, WENO5 captures them faithfully. "
-            "This is the best case to demonstrate the benefit of high-order schemes."
+            "Compare how much of these oscillations MUSCL and WENO5 keep at "
+            "N = 200 and N = 400. The black curve is a fine-mesh computation, "
+            "not an exact solution."
         ),
     },
     "Entropy wave": {
@@ -354,22 +380,54 @@ def cached_simulate(
         "floor_energy": result.floor_energy,
         "cfl": result.cfl,
         "cfl_requested": config.time.cfl,
+        "time_integrator": select_time_integrator(scheme, rk),
     }
     return snapshots, result.times, result.wall_time, scheme.name, diagnostics
 
 
-def report_diagnostics(display_name: str, diagnostics: dict) -> None:
-    """Tell the user when a run diverged, was patched, or ran at a reduced CFL."""
+def _common_cfl(selected: list, cfl: float, variables: str) -> float:
+    """The requested CFL, lowered to the smallest limit among the selected schemes."""
+    limits = [
+        get_scheme(name, **_scheme_kwargs(name, limiter, variables)).max_cfl
+        for name, limiter, _ in selected
+    ]
+    return min([cfl] + limits)
+
+
+def report_diagnostics(
+    display_name: str, diagnostics: dict, half_cfl_status: str | None = None
+) -> None:
+    """Tell the user when a run diverged, was patched, or ran at a reduced CFL.
+
+    half_cfl_status is the status of the same run at half the CFL, used to
+    tell a time-step limit from a failure of the spatial scheme.
+    """
     if diagnostics["cfl"] < diagnostics["cfl_requested"]:
         st.caption(
             f"**{display_name}**: CFL {diagnostics['cfl']:g} instead of "
-            f"{diagnostics['cfl_requested']:g}. A limited reconstruction is only "
-            f"guaranteed stable (TVD) up to CFL 0.5."
+            f"{diagnostics['cfl_requested']:g}. MUSCL, ENO and WENO are capped at "
+            f"0.5: in the method of lines a limited reconstruction is TVD only up "
+            f"to 0.5, and WENO, although not TVD, gets the same cap (docs §6.1)."
         )
     if diagnostics["status"] == "diverged":
+        if half_cfl_status == "ok":
+            cause = (
+                f"At CFL {diagnostics['cfl'] / 2:g} the same run succeeds: this is a "
+                f"time-step limit of the scheme on this case, not a defect of its "
+                f"spatial discretisation (example: AUSM+ on Sod, docs §4.9)."
+            )
+        elif half_cfl_status == "diverged":
+            cause = (
+                f"It still fails at CFL {diagnostics['cfl'] / 2:g}: the time step is "
+                f"not the cause. The spatial scheme itself produces a non-physical "
+                f"state here, typically a loss of positivity near vacuum or the "
+                f"oscillations of a centred scheme at a strong shock (docs §8.5)."
+            )
+        else:
+            cause = "This scheme fails on this case."
         st.error(
             f"**{display_name}**: diverged at t = {diagnostics['t_end']:.4g} "
-            f"(negative density or pressure). This scheme fails on this case."
+            f"(negative density or pressure). {cause}"
         )
     if diagnostics["floor_events"]:
         st.warning(
@@ -436,6 +494,7 @@ def _make_profile_figure(
     dfs: list[tuple[str, pd.DataFrame]],
     exact: pd.DataFrame,
     title: str = "",
+    exact_label: str = "Exact",
 ) -> go.Figure:
     """Create 3 subplots (rho, u, p) comparing numerical vs exact."""
     variables = ("rho", "u", "p")
@@ -450,7 +509,7 @@ def _make_profile_figure(
         fig.add_trace(go.Scatter(
             x=exact["x"], y=exact[var], mode="lines",
             line=dict(color="black", width=2),
-            name="Exact", legendgroup="Exact", showlegend=showlegend,
+            name=exact_label, legendgroup="Exact", showlegend=showlegend,
         ), row=1, col=j)
         for i, (name, df) in enumerate(dfs):
             fig.add_trace(go.Scatter(
@@ -495,6 +554,8 @@ def _make_convergence_figure(
         (0.5, "dot", "O(Δx⁰·⁵)"),
         (1.0, "dash", "O(Δx)"),
         (2.0, "dashdot", "O(Δx²)"),
+        (3.0, "longdash", "O(Δx³)"),
+        (5.0, "longdashdot", "O(Δx⁵)"),
     ]
 
     for col_idx, norm in enumerate(NORMS, 1):
@@ -567,6 +628,7 @@ st.set_page_config(page_title="1D Euler Solver", layout="wide")
 st.title("1D Euler Solver — Interactive interface")
 
 with st.sidebar:
+    documentation_sidebar()
     st.header("Configuration")
     test_case_name = st.selectbox("Test case", list(TEST_CASES.keys()))
     is_smooth = test_case_name in SMOOTH_CASES
@@ -582,6 +644,9 @@ with st.sidebar:
         if is_smooth:
             gamma = 1.4
             st.info("Gamma fixed at 1.4 for smooth cases")
+        elif test_case_name in REFERENCE_CASES:
+            gamma = 1.4
+            st.info("Gamma fixed at 1.4: the left state is a Mach 3 shock only for γ = 1.4")
         else:
             gamma = st.slider("Gamma", 1.1, 2.0, 1.4, step=0.05)
         recon_variables = st.selectbox(
@@ -633,29 +698,50 @@ tab1, tab4 = st.tabs([
 with tab1:
     st.subheader("Scheme comparison")
     selected = scheme_selector_multi("tab1")
+    same_cfl = st.checkbox(
+        "Same CFL for all schemes",
+        value=False,
+        help=(
+            "By default each scheme runs at the requested CFL capped by its own "
+            "limit (1 for first-order schemes, 0.5 for MUSCL, ENO, WENO), so the "
+            "schemes do not use the same time step. Tick to run all of them at "
+            "the smallest of these CFL numbers, for a comparison at equal time step."
+        ),
+        key="tab1_same_cfl",
+    )
 
     if selected:
         with st.spinner("Running simulation..."):
             dfs_list = []
             exact = cached_exact(test_case_name, n_cells, cfl, gamma)
+            run_cfl = _common_cfl(selected, cfl, recon_variables) if same_cfl else cfl
 
             for sname, limiter, ti in selected:
                 snapshots, times, wall_time, display_name, diag = cached_simulate(
-                    test_case_name, n_cells, cfl, gamma, sname, limiter, 1, ti,
+                    test_case_name, n_cells, run_cfl, gamma, sname, limiter, 1, ti,
                     positivity_floor, recon_variables,
                 )
-                report_diagnostics(display_name, diag)
+                half = None
+                if diag["status"] == "diverged":
+                    half = cached_simulate(
+                        test_case_name, n_cells, diag["cfl"] / 2, gamma, sname, limiter,
+                        1, ti, positivity_floor, recon_variables,
+                    )[4]["status"]
+                report_diagnostics(display_name, diag, half)
                 if diag["status"] == "diverged":
                     continue
                 U = np.array(snapshots[-1])
                 rho, u, p = conservative_to_primitive(U, gamma)
                 x = exact["x"].values
                 df_num = pd.DataFrame({"x": x, "rho": rho, "u": u, "p": p})
-                dfs_list.append((display_name, df_num))
+                dfs_list.append(
+                    (f"{display_name} [{diag['time_integrator']}, CFL {diag['cfl']:g}]", df_num)
+                )
 
             fig = _make_profile_figure(
                 dfs_list, exact,
                 title=f"{test_case_name} — N={n_cells}, CFL={cfl}",
+                exact_label=REFERENCE_CASES.get(test_case_name, "Exact"),
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -682,9 +768,11 @@ with tab1:
                 conv_dfs = []
                 order_rows = []
                 round_off = set()
+                local_rows = []
+                discontinuous_note = None
                 for sname, limiter, ti in selected:
                     df = cached_convergence(
-                        test_case_name, cfl, gamma, sname, limiter, n_cells_list, ti,
+                        test_case_name, run_cfl, gamma, sname, limiter, n_cells_list, ti,
                         recon_variables,
                     )
                     if df.empty:
@@ -700,10 +788,24 @@ with tab1:
                         )
                     conv_dfs.append((display_name, df))
 
+                    scheme = get_scheme(sname, **_scheme_kwargs(sname, limiter, recon_variables))
+                    rk_used = select_time_integrator(scheme, None if ti == "Auto" else ti)
+                    display_name = (
+                        f"{display_name} [{rk_used}, CFL {min(run_cfl, scheme.max_cfl):g}]"
+                    )
+                    conv_dfs[-1] = (display_name, df)
+                    expected, note = expected_order(
+                        scheme, None if ti == "Auto" else ti,
+                        _build_config(test_case_name, n_cells_list[0], cfl, gamma),
+                    )
+                    if expected is None:
+                        discontinuous_note = note
+
                     var_data = df[df["variable"] == conv_var]
                     if len(var_data) >= 2:
                         dx_vals = var_data["dx"].values
-                        row = {"Scheme": display_name}
+                        row = {"Scheme": display_name,
+                               "Expected": "—" if expected is None else str(expected)}
                         for norm in NORMS:
                             err = var_data[norm].values
                             if errors_at_round_off(err):
@@ -711,7 +813,18 @@ with tab1:
                                 round_off.add(display_name)
                             else:
                                 row[f"Order ({norm})"] = f"{estimate_order(dx_vals, err):.2f}"
+                        row["Why this expected order"] = "see note below" if expected is None else note
                         order_rows.append(row)
+                        for k, n in enumerate(var_data["n_cells"].values):
+                            local = {"Scheme": display_name, "N": int(n)}
+                            for norm in NORMS:
+                                err = var_data[norm].values
+                                local[f"Error {norm}"] = f"{err[k]:.3e}"
+                                local[f"Local order {norm}"] = (
+                                    "" if k == 0 or errors_at_round_off(err)
+                                    else f"{local_orders(dx_vals, err)[k - 1]:.2f}"
+                                )
+                            local_rows.append(local)
 
                 fig = _make_convergence_figure(
                     conv_dfs, conv_var,
@@ -721,6 +834,23 @@ with tab1:
 
                 st.subheader("Estimated convergence orders")
                 st.dataframe(pd.DataFrame(order_rows), width="stretch", hide_index=True)
+                st.caption(
+                    "Order: least-squares slope over all resolutions. It mixes the "
+                    "coarse meshes, where the asymptotic regime is not reached yet; "
+                    "the local orders below show whether it settles."
+                )
+                if test_case_name in REFERENCE_CASES:
+                    st.warning(
+                        "The errors are measured against a fine-mesh computation "
+                        "(WENO5-Z + HLLC, 2000 cells), not an exact solution: these "
+                        "orders do not measure convergence. WENO5-Z + HLLC is compared "
+                        "with itself, and the finest mesh is only 2.5 times coarser "
+                        "than the reference."
+                    )
+                elif discontinuous_note:
+                    st.info(discontinuous_note)
+                with st.expander("Errors and local orders between successive meshes"):
+                    st.dataframe(pd.DataFrame(local_rows), width="stretch", hide_index=True)
                 if round_off:
                     st.info(
                         f"**{', '.join(sorted(round_off))}**: errors at round-off level "
@@ -750,7 +880,13 @@ with tab4:
         )
 
     # On divergence the animation still runs up to the last finite state.
-    report_diagnostics(dn, diag)
+    half = None
+    if diag["status"] == "diverged":
+        half = cached_simulate(
+            test_case_name, n_cells, diag["cfl"] / 2, gamma, anim_scheme,
+            anim_limiter, 1, anim_ti, positivity_floor, recon_variables,
+        )[4]["status"]
+    report_diagnostics(dn, diag, half)
 
     config = _build_config(test_case_name, n_cells, cfl, gamma)
     t_final = config.time.t_final
@@ -770,7 +906,10 @@ with tab4:
         time_idx = 0
         selected_time = snap_times[0] if snap_times else t_final
 
-    st.write(f"**Scheme:** {dn} | **t =** {selected_time:.6f} / {t_final:.6f} | **Wall time:** {wt:.4f} s")
+    st.write(
+        f"**Scheme:** {dn} [{diag['time_integrator']}, CFL {diag['cfl']:g}] | "
+        f"**t =** {selected_time:.6f} / {t_final:.6f} | **Wall time:** {wt:.4f} s"
+    )
 
     # Plot snapshot vs exact at that time
     U = np.array(snapshots[time_idx])
@@ -779,7 +918,13 @@ with tab4:
     dx = mesh.dx
     x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
 
-    exact_t = _compute_exact_at_time(config, selected_time)
+    # A fine-mesh reference costs seconds per time: show it at the final time only.
+    show_exact = test_case_name not in REFERENCE_CASES or selected_time >= t_final
+    exact_t = _compute_exact_at_time(config, selected_time) if show_exact else None
+    if not show_exact:
+        st.caption(
+            f"{REFERENCE_CASES[test_case_name]} shown at the final time only."
+        )
 
     variables = ("rho", "u", "p")
     num_arrays = (rho_num, u_num, p_num)
@@ -792,11 +937,13 @@ with tab4:
 
     for j, (var, num_data) in enumerate(zip(variables, num_arrays), 1):
         showlegend = j == 1
-        fig.add_trace(go.Scatter(
-            x=exact_t["x"], y=exact_t[var], mode="lines",
-            line=dict(color="black", width=2),
-            name="Exact", legendgroup="Exact", showlegend=showlegend,
-        ), row=1, col=j)
+        if exact_t is not None:
+            fig.add_trace(go.Scatter(
+                x=exact_t["x"], y=exact_t[var], mode="lines",
+                line=dict(color="black", width=2),
+                name=REFERENCE_CASES.get(test_case_name, "Exact"),
+                legendgroup="Exact", showlegend=showlegend,
+            ), row=1, col=j)
         fig.add_trace(go.Scatter(
             x=x, y=num_data, mode="lines+markers",
             line=dict(color=COLORS[0], width=1.5),

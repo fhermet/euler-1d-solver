@@ -198,6 +198,22 @@ avec $\lambda$ la vitesse de l'onde excitée. Les tests (`tests/test_fourier.py`
 - **Lax-Wendroff** : $\lvert G \rvert$ est proche de 1, mais le rapport de phase s'ecarte significativement de 1 aux hautes frequences. C'est la signature d'un schema **dispersif** : il ne dissipe pas les ondes mais les fait voyager a la mauvaise vitesse, ce qui genere des oscillations en amont et en aval des discontinuites.
 - **Schemas d'ordre eleve** : le rapport de phase reste proche de 1 sur une plage de $\theta$ d'autant plus large que l'ordre est eleve.
 
+### Comparer à pas de temps différents
+
+$\lvert G \rvert$ est un facteur **par pas de temps** : il dépend du pas de temps choisi. Deux pièges en découlent :
+
+- **Nombre de Courant du mode.** Le CFL de l'interface est rapporté à la vitesse maximale $\lvert u_0 \rvert + c_0 \approx 2{,}18$. Le nombre de Courant de l'onde analysée, $\sigma = \lambda \Delta t / \Delta x$, est donc plus petit : à CFL 0,5, $\sigma \approx 0{,}23$ pour l'onde entropique et $\sigma \approx -0{,}04$ pour l'onde acoustique gauche. La légende affiche $\sigma$.
+- **Normalisation.** Pour Rusanov à $\theta = \pi/4$, sur l'onde entropique, $\lvert G \rvert$ vaut 0,93 à CFL 0,25 et 0,79 à CFL 0,9 : par pas, le grand CFL semble amortir davantage. Mais il faut $2\pi / (\theta \lvert \sigma \rvert)$ pas pour que l'onde parcoure une longueur d'onde. À distance parcourue égale, il reste 0,006 de l'amplitude à CFL 0,25 et 0,011 à CFL 0,9 : la conclusion s'inverse. Pour Lax-Friedrichs, dont la dissipation est proportionnelle à $\Delta x / \Delta t$, l'écart est bien plus grand ($5 \times 10^{-11}$ contre $5{,}5 \times 10^{-3}$). L'option « after travelling one wavelength » de la page trace $\lvert G \rvert^{2\pi/(\theta \lvert\sigma\rvert)}$.
+
+Le nombre de mailles par longueur d'onde vaut $2\pi/\theta$ : $\theta = \pi/4$ correspond à 8 mailles par longueur d'onde, $\theta = \pi$ à 2 mailles (la dent de scie).
+
+### Courbes confondues et mode $\theta = \pi$
+
+- **HLLC et Roe donnent le même $G$ sur les trois ondes.** Linéarisés autour d'un état uniforme, tous deux décentrent chaque onde à sa propre vitesse. Ils ne diffèrent que par des effets non linéaires, sur des sauts finis.
+- **Rusanov** dissipe toutes les ondes à la vitesse maximale $\lvert u \rvert + c$ : il coïncide avec HLLC et Roe sur l'onde acoustique droite, qui va à cette vitesse, et dissipe davantage les ondes plus lentes (entropique, acoustique gauche).
+- **Lax-Friedrichs** a $\lvert G(\pi) \rvert = 1$ : $G = \cos\theta - i\,\nu \sin\theta$ vaut $-1$ en $\theta = \pi$. Les mailles paires et impaires sont découplées et une dent de scie n'est pas amortie, bien que le schéma soit très dissipatif aux fréquences intermédiaires. Son rapport de phase dépasse 20 sur l'onde acoustique gauche : la page borne l'axe à 3.
+- **JST** est analysé avec un capteur de choc négligeable (perturbation $10^{-6}$) : la courbe est celle de sa dissipation d'ordre 4, en zone régulière.
+
 ### Limites de l'analyse linéaire
 
 - **WENO est analysé dans son régime lisse.** Avec une perturbation d'amplitude $10^{-6}$, les indicateurs de régularité $\beta_k$ sont très inférieurs au paramètre $\varepsilon$ des poids : les poids prennent leurs valeurs idéales et les courbes sont celles du schéma linéaire sous-jacent (décentré d'ordre 5 pour WENO5). C'est le comportement de WENO dans les zones régulières, pas près des discontinuités.
