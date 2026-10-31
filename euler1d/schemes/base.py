@@ -50,7 +50,7 @@ class NumericalScheme(ABC):
 
     @property
     def scheme_type(self) -> str:
-        """Return 'upwind' or 'centré'."""
+        """Return 'upwind', 'centered' or 'FVS' (flux vector splitting)."""
         return "upwind"
 
     @property

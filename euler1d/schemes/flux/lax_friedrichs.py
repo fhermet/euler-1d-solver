@@ -47,7 +47,7 @@ class LaxFriedrichs(NumericalScheme):
 
     @property
     def scheme_type(self) -> str:
-        return "centré"
+        return "centered"
 
     def compute_riemann_flux(
         self, UL: np.ndarray, UR: np.ndarray, gas: GasProperties, dx: float, dt: float
