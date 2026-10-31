@@ -76,7 +76,8 @@ La détermination de $(\rho^\ast, u^\ast, p^\ast)$ passe par :
 ### Inconvénients
 
 - **Coût élevé** : chaque interface nécessite une itération de Newton (typiquement 3 à 6 itérations) pour trouver $p^\ast$, plus l'échantillonnage de la solution. Cela représente un coût bien supérieur aux solveurs approchés.
-- **Boucle Python** : dans l'implémentation, le solveur exact est appelé interface par interface dans une boucle Python (car `sample_at_interface` ne se vectorise pas trivialement), ce qui le rend significativement plus lent que les schémas vectorisés (Rusanov, HLL).
+- **Coût** : l'itération de Newton est vectorisée sur toutes les interfaces à la fois (`sample_interfaces`), mais reste plus chère qu'un flux approché : environ 5 fois HLLC sur le tube de Sod.
+- **Vide** : si les états d'interface engendrent du vide ($u_R - u_L \geq \frac{2}{\gamma-1}(a_L + a_R)$, §2.6), le flux utilise la solution exacte avec une zone de vide entre deux détentes [Toro, 2009, §4.6], où $\rho = u = p = 0$. Une reconstruction d'ordre élevé peut créer cette situation près du vide, même si les données initiales ne la remplissent pas.
 - **Reste d'ordre 1** : malgré l'exactitude du flux, la reconstruction constante par morceaux limite la précision globale à l'ordre 1.
 
 ### Comparaison
@@ -305,7 +306,7 @@ $$\hat{\mathbf{F}}_{i+1/2} = \begin{cases} \mathbf{F}_L & \text{si } S_L \geq 0 
 
 ### Inconvénients
 
-- **Boucle Python** : dans l'implémentation actuelle, le flux est calculé interface par interface dans une boucle Python (à cause des quatre cas conditionnels). Cela le rend plus lent que HLL (vectorisé) pour un grand nombre de cellules, bien que la qualité du flux soit supérieure.
+- **Vectorisé** : les quatre flux candidats ($\mathbf{F}_L$, $\mathbf{F}^\ast_L$, $\mathbf{F}^\ast_R$, $\mathbf{F}_R$) sont calculés sur toutes les interfaces, puis sélectionnés par masque.
 - **Approximation des vitesses d'onde** : la qualité du résultat dépend de l'estimation de $S_L$ et $S_R$. Les estimations de Davis sont simples mais peuvent être sous-optimales dans certains cas.
 
 ### Comparaison
@@ -780,7 +781,7 @@ Le tableau suivant résume les caractéristiques des huit schémas de flux :
 
 - **Composable** : indique si le flux peut être combiné avec les reconstructions d'ordre élevé (MUSCL, ENO, WENO). Les 7 flux composables (Godunov, Rusanov, HLL, HLLC, Roe, Roe sans correction, AUSM+) combinés avec 6 reconstructions donnent 42 schémas d'ordre élevé (cf. §3.7).
 
-- **Coût relatif** : estimation qualitative du coût par interface. Godunov est le plus cher (itération de Newton). Les schémas vectorisés (Rusanov, HLL, Lax-Friedrichs) sont les moins chers. HLLC est plus cher dans l'implémentation actuelle (boucle Python) mais pourrait être vectorisé.
+- **Coût relatif** : estimation qualitative du coût par interface. Godunov est le plus cher (itération de Newton). Les schémas vectorisés (Rusanov, HLL, Lax-Friedrichs) sont les moins chers. HLLC coûte un peu plus que HLL (états étoile).
 
 - **Dissipation** : niveau de dissipation numérique introduite par le schéma. Les schémas les plus dissipatifs étalent les discontinuités mais sont plus robustes. Les schémas les moins dissipatifs préservent mieux les discontinuités mais peuvent osciller (Lax-Wendroff) ou nécessiter des corrections (Roe).
 

@@ -585,3 +585,152 @@ def sample_at_interface(
     x = np.array([0.0])
     rho, u, p = sample_riemann(x, 1.0, rhoL, uL, pL, rhoR, uR, pR, gamma, x0=0.0)
     return float(rho[0]), float(u[0]), float(p[0])
+
+
+# ---------------------------------------------------------------------------
+# Vectorised solver at x/t = 0, for the Godunov flux
+# ---------------------------------------------------------------------------
+
+
+def _f_side_vec(p, rhoK, pK, aK, gamma):
+    """Pressure function f_K and its derivative, both branches, vectorised."""
+    AK = 2.0 / ((gamma + 1.0) * rhoK)
+    BK = (gamma - 1.0) / (gamma + 1.0) * pK
+    shock = p > pK
+    with np.errstate(invalid="ignore", divide="ignore"):
+        sq = np.sqrt(AK / (p + BK))
+        f_shock = (p - pK) * sq
+        df_shock = sq * (1.0 - 0.5 * (p - pK) / (p + BK))
+        ratio = p / pK
+        f_rare = 2.0 * aK / (gamma - 1.0) * (ratio ** ((gamma - 1.0) / (2.0 * gamma)) - 1.0)
+        df_rare = ratio ** (-(gamma + 1.0) / (2.0 * gamma)) / (rhoK * aK)
+    return np.where(shock, f_shock, f_rare), np.where(shock, df_shock, df_rare)
+
+
+def _pressure_guess_vec(rhoL, uL, pL, aL, rhoR, uR, pR, aR, gamma):
+    """Vectorised adaptive PVRS/TRRS/TSRS guess (see _pressure_guess)."""
+    p_min, p_max = np.minimum(pL, pR), np.maximum(pL, pR)
+    p_pv = 0.5 * (pL + pR) - 0.5 * (uR - uL) * (rhoL * aL + rhoR * aR) / (rhoL + rhoR)
+    z = (gamma - 1.0) / (2.0 * gamma)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        num = aL + aR - 0.5 * (gamma - 1.0) * (uR - uL)
+        p_tr = (np.maximum(num, 0.0) / (aL / pL**z + aR / pR**z)) ** (1.0 / z)
+        p0 = np.maximum(0.0, p_pv)
+        gL = np.sqrt(2.0 / ((gamma + 1.0) * rhoL) / (p0 + (gamma - 1.0) / (gamma + 1.0) * pL))
+        gR = np.sqrt(2.0 / ((gamma + 1.0) * rhoR) / (p0 + (gamma - 1.0) / (gamma + 1.0) * pR))
+        p_ts = (gL * pL + gR * pR - (uR - uL)) / (gL + gR)
+    use_pv = (p_max / p_min < 2.0) & (p_min <= p_pv) & (p_pv <= p_max)
+    guess = np.where(use_pv, p_pv, np.where(p_pv < p_min, p_tr, p_ts))
+    return np.maximum(guess, 1e-14)
+
+
+def _fan_state(xi, rhoK, uK, pK, aK, gamma, sign):
+    """State inside the rarefaction fan of side K at x/t = xi (sign -1: left, +1: right)."""
+    gm1, gp1 = gamma - 1.0, gamma + 1.0
+    u = 2.0 / gp1 * (-sign * aK + 0.5 * gm1 * uK + xi)
+    a = aK + sign * 0.5 * gm1 * (u - uK)
+    with np.errstate(invalid="ignore"):
+        rho = rhoK * (a / aK) ** (2.0 / gm1)
+        p = pK * (a / aK) ** (2.0 * gamma / gm1)
+    return rho, u, p
+
+
+def sample_interfaces(
+    rhoL: np.ndarray, uL: np.ndarray, pL: np.ndarray,
+    rhoR: np.ndarray, uR: np.ndarray, pR: np.ndarray,
+    gamma: float,
+    tol: float = 1e-10,
+    max_iter: int = 50,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Exact Riemann solution at x/t = 0 for arrays of interfaces (Godunov flux).
+
+    Vectorised counterpart of :func:`sample_at_interface`: Newton runs on all
+    interfaces at once, and the sampling decision tree is applied by masks.
+    When the data generate a vacuum (u_R - u_L >= 2(a_L + a_R)/(gamma-1)),
+    the solution is two rarefactions separated by a vacuum region (Toro 2009,
+    §4.6) instead of an error; in the vacuum, rho = u = p = 0.
+
+    Interfaces with a non-positive density or pressure on either side get NaN,
+    so that the time loop reports the divergence instead of raising here.
+
+    Raises
+    ------
+    RuntimeError
+        If Newton does not converge on some physical, non-vacuum interface.
+    """
+    gm1, gp1 = gamma - 1.0, gamma + 1.0
+    invalid = ~((rhoL > 0.0) & (pL > 0.0) & (rhoR > 0.0) & (pR > 0.0))
+    with np.errstate(invalid="ignore"):
+        aL = np.sqrt(gamma * pL / rhoL)
+        aR = np.sqrt(gamma * pR / rhoR)
+    vacuum = ~invalid & ((uR - uL) >= 2.0 / gm1 * (aL + aR))
+
+    # --- Star region (non-vacuum interfaces) ---
+    p = _pressure_guess_vec(rhoL, uL, pL, aL, rhoR, uR, pR, aR, gamma)
+    converged = vacuum | invalid
+    for _ in range(max_iter):
+        fL, dfL = _f_side_vec(p, rhoL, pL, aL, gamma)
+        fR, dfR = _f_side_vec(p, rhoR, pR, aR, gamma)
+        with np.errstate(invalid="ignore"):
+            p_new = np.maximum(1e-14, p - (fL + fR + uR - uL) / (dfL + dfR))
+        p_new = np.where(converged, p, p_new)
+        converged |= 2.0 * np.abs(p_new - p) / (p_new + p) < tol
+        p = p_new
+        if converged.all():
+            break
+    else:
+        raise RuntimeError(
+            f"Newton iteration for p_star did not converge in {max_iter} iterations."
+        )
+    fL, _ = _f_side_vec(p, rhoL, pL, aL, gamma)
+    fR, _ = _f_side_vec(p, rhoR, pR, aR, gamma)
+    u_star = 0.5 * (uL + uR) + 0.5 * (fR - fL)
+
+    z = gm1 / (2.0 * gamma)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        rL_shock = rhoL * (p / pL + gm1 / gp1) / (gm1 / gp1 * p / pL + 1.0)
+        rR_shock = rhoR * (p / pR + gm1 / gp1) / (gm1 / gp1 * p / pR + 1.0)
+        rho_starL = np.where(p > pL, rL_shock, rhoL * (p / pL) ** (1.0 / gamma))
+        rho_starR = np.where(p > pR, rR_shock, rhoR * (p / pR) ** (1.0 / gamma))
+        SL = uL - aL * np.sqrt(gp1 / (2.0 * gamma) * (p / pL - 1.0) + 1.0)
+        SR = uR + aR * np.sqrt(gp1 / (2.0 * gamma) * (p / pR - 1.0) + 1.0)
+        tailL = u_star - aL * (p / pL) ** z
+        tailR = u_star + aR * (p / pR) ** z
+    headL, headR = uL - aL, uR + aR
+
+    fanL = _fan_state(0.0, rhoL, uL, pL, aL, gamma, -1.0)
+    fanR = _fan_state(0.0, rhoR, uR, pR, aR, gamma, +1.0)
+    WL, WR = (rhoL, uL, pL), (rhoR, uR, pR)
+    starL, starR = (rho_starL, u_star, p), (rho_starR, u_star, p)
+
+    def pick(cases, default):
+        return tuple(np.select([c for c, _ in cases], [w[i] for _, w in cases], default[i])
+                     for i in range(3))
+
+    # Same decision tree as sample_riemann, evaluated at xi = 0.
+    left = 0.0 < u_star
+    left_shock = p > pL
+    right_shock = p > pR
+    out = pick([
+        (left & left_shock & (0.0 < SL), WL),
+        (left & left_shock, starL),
+        (left & (0.0 < headL), WL),
+        (left & (0.0 <= tailL), fanL),
+        (left, starL),
+        (right_shock & (0.0 > SR), WR),
+        (right_shock, starR),
+        (0.0 > headR, WR),
+        (0.0 >= tailR, fanR),
+    ], starR)
+
+    # --- Vacuum generated between two rarefactions (Toro 2009, §4.6) ---
+    zero = np.zeros_like(p)
+    tail_vac_L = uL + 2.0 * aL / gm1
+    tail_vac_R = uR - 2.0 * aR / gm1
+    vac = pick([
+        (0.0 <= headL, WL),
+        (0.0 < tail_vac_L, fanL),
+        (0.0 >= headR, WR),
+        (0.0 > tail_vac_R, fanR),
+    ], (zero, zero, zero))
+    return tuple(np.where(invalid, np.nan, np.where(vacuum, v, o)) for v, o in zip(vac, out))
