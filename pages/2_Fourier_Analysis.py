@@ -6,7 +6,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
 
-from euler1d.fourier_analysis import compute_amplification
+import numpy as np
+
+from euler1d.fourier_analysis import compute_amplification, damping_per_wavelength
 from euler1d.schemes import get_scheme
 from ui_common import (
     COLORS,
@@ -62,6 +64,20 @@ with col3:
         key="fourier_ignore_limit",
     )
 
+per_wavelength = st.radio(
+    "Dissipation shown",
+    ["per time step", "after travelling one wavelength"],
+    horizontal=True,
+    help=(
+        "|G| is a factor per time step: its value depends on the time step. "
+        "To compare schemes run at different CFL numbers, or one scheme at "
+        "several CFL numbers, look at the amplitude left after the wave has "
+        "travelled one wavelength, |G|^(2π/(θσ)), with σ the Courant number "
+        "of the wave."
+    ),
+    key="fourier_norm",
+) == "after travelling one wavelength"
+
 if selected:
     wave_label = {"entropy": "entropy", "acoustic": "right acoustic",
                   "acoustic-left": "left acoustic"}[wave_type]
@@ -69,7 +85,10 @@ if selected:
     with st.spinner("Fourier analysis..."):
         fig = make_subplots(
             rows=1, cols=2,
-            subplot_titles=["Dissipation |G(θ)|", "Dispersion φ/φ_exact"],
+            subplot_titles=[
+                "Amplitude after one wavelength" if per_wavelength else "Dissipation |G(θ)| per step",
+                "Dispersion φ/φ_exact",
+            ],
             horizontal_spacing=0.1,
         )
 
@@ -84,11 +103,18 @@ if selected:
             theta = result["theta"]
             color = COLORS[i % len(COLORS)]
             mkr = MARKERS[i % len(MARKERS)]
-            dname = f"{scheme.name} [{result['time_integrator']}, CFL {result['cfl']:g}]"
+            dname = (
+                f"{scheme.name} [{result['time_integrator']}, CFL {result['cfl']:g}, "
+                f"σ {result['sigma']:.2f}]"
+            )
             used.append((dname, result))
+            damping = (
+                damping_per_wavelength(theta, result["abs_G"], result["sigma"])
+                if per_wavelength else result["abs_G"]
+            )
 
             fig.add_trace(go.Scatter(
-                x=theta, y=result["abs_G"], mode="lines+markers",
+                x=theta, y=damping, mode="lines+markers",
                 name=dname, legendgroup=dname,
                 line=dict(color=color, width=2),
                 marker=dict(symbol=mkr, size=5, maxdisplayed=25),
@@ -104,10 +130,21 @@ if selected:
         fig.add_hline(y=1.0, line=dict(color="black", width=1, dash="dash"), row=1, col=1)
         fig.add_hline(y=1.0, line=dict(color="black", width=1, dash="dash"), row=1, col=2)
 
-        fig.update_xaxes(thesis_axis(title_text="θ = k Δx"), row=1, col=1)
-        fig.update_xaxes(thesis_axis(title_text="θ = k Δx"), row=1, col=2)
-        fig.update_yaxes(thesis_axis(title_text="|G|"), row=1, col=1)
-        fig.update_yaxes(thesis_axis(title_text="φ / φ_exact"), row=1, col=2)
+        # θ = 2π / (cells per wavelength): label the ticks with both.
+        ticks = [np.pi / 8, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi]
+        ticktext = ["π/8<br>16 cells", "π/4<br>8 cells", "π/2<br>4 cells",
+                    "3π/4<br>2.7 cells", "π<br>2 cells"]
+        for col in (1, 2):
+            fig.update_xaxes(
+                thesis_axis(title_text="θ = k Δx  (cells per wavelength = 2π/θ)"),
+                tickvals=ticks, ticktext=ticktext, row=1, col=col,
+            )
+        fig.update_yaxes(
+            thesis_axis(title_text="amplitude after one wavelength" if per_wavelength else "|G|"),
+            row=1, col=1,
+        )
+        # Lax-Friedrichs reaches phase ratios of 20 and more: bound the axis.
+        fig.update_yaxes(thesis_axis(title_text="φ / φ_exact"), range=[0, 3], row=1, col=2)
 
         fig.update_layout(
             **THESIS_LAYOUT,
@@ -128,6 +165,12 @@ if selected:
                 "limit (as in the solver). Tick 'Ignore the scheme's CFL limit' to "
                 "analyse them at the requested CFL."
             )
+        clipped = [name for name, r in used if np.nanmax(r["phase_ratio"]) > 3]
+        if clipped:
+            st.caption(
+                "Phase ratio above 3 not shown for: " + ", ".join(clipped) + ". "
+                "Where |G| is small the phase hardly matters: the mode is gone."
+            )
         unstable = [name for name, r in used if r["abs_G"].max() > 1.0 + 1e-6]
         if unstable:
             st.warning(
@@ -142,12 +185,23 @@ if selected:
         st.markdown(
             "**Reading guide:** An ideal scheme would have $|G| = 1$ (no dissipation) and "
             "$\\phi/\\phi_{exact} = 1$ (no dispersion error) for all $\\theta$. "
-            "In practice, dissipative schemes (Lax-Friedrichs, Rusanov) damp "
-            "high frequencies, while low-dissipation schemes (Lax-Wendroff, JST) "
-            "introduce dispersion errors that cause oscillations near shocks.\n\n"
+            "Rusanov and the other upwind fluxes damp high frequencies; "
+            "low-dissipation schemes (Lax-Wendroff) introduce dispersion errors "
+            "that cause oscillations near shocks. Lax-Friedrichs is an exception: "
+            "it damps intermediate frequencies strongly but not $\\theta = \\pi$, "
+            "where $|G| = 1$: the odd and even cells are decoupled, and a "
+            "sawtooth survives.\n\n"
+            "**Why some curves coincide:** linearized around a uniform state, "
+            "HLLC and Roe both upwind each wave at its own speed, so they give the "
+            "same G on every wave. Rusanov damps every wave at the largest speed "
+            "|u| + c: it coincides with them on the right-going acoustic wave, "
+            "which travels at that speed, and is more dissipative on the slower "
+            "entropy and left-going waves. HLLC and Roe differ only through "
+            "nonlinear effects, at finite jumps (Sod, stationary contact).\n\n"
             "**Limits of a linear analysis:** the perturbation is tiny ($10^{-6}$), so "
-            "WENO weights take their ideal values: the curves show WENO in smooth "
-            "regions. $|G| \\leq 1$ is linear stability only; it does not guarantee "
+            "WENO weights take their ideal values and the JST shock sensor is negligible "
+            ": the curves show WENO and JST in smooth regions, not near shocks. "
+            "$|G| \\leq 1$ is linear stability only; it does not guarantee "
             "the TVD property. MUSCL (minmod, van Leer) at CFL 0.9 has $|G| \\leq 1$ here, yet the solver "
             "caps it at 0.5 because above that round-off can grow near shocks. "
             "The phase is not defined at $\\theta = \\pi$ (standing grid mode)."
