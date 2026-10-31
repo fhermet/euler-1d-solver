@@ -200,7 +200,7 @@ class WENO5Scheme(NumericalScheme):
     compute interface states, then delegates flux computation to the underlying
     Riemann solver. Supports both JS and Z weight variants.
 
-    Properties: order=5, n_ghost=3, default time integrator=RK5 (Dormand-Prince).
+    Properties: order=5, n_ghost=3, default time integrator=SSP-RK3.
 
     Parameters
     ----------

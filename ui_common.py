@@ -65,8 +65,8 @@ _RK_DEFAULTS = {
     "eno2": "RK2",
     "weno3": "RK3",
     "wenoz3": "RK3",
-    "weno5": "RK5",
-    "wenoz5": "RK5",
+    "weno5": "RK3",
+    "wenoz5": "RK3",
     "_centered": "Auto",
 }
 

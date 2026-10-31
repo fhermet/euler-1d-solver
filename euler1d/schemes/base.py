@@ -60,16 +60,18 @@ class NumericalScheme(ABC):
 
     @property
     def default_time_integrator(self) -> str:
-        """Default RK method when user selects 'Auto'."""
+        """Default RK method when user selects 'Auto'.
+
+        Order 3 and above use SSP-RK3: on discontinuous solutions the
+        stability of the time integrator matters more than its formal order,
+        and the non-SSP RK5 makes WENO5 blow up on a stationary contact at
+        CFL 0.9.
+        """
         if self.order < 2:
             return "RK1"
         if self.order < 3:
             return "RK2"
-        if self.order < 4:
-            return "RK3"
-        if self.order < 5:
-            return "RK4"
-        return "RK5"
+        return "RK3"
 
     @property
     def n_ghost(self) -> int:

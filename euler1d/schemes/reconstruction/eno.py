@@ -1,9 +1,10 @@
 """ENO (Essentially Non-Oscillatory) reconstruction scheme, order 2.
 
 Implements the ENO methodology of adaptive stencil selection: for each cell,
-the reconstruction chooses the stencil with the smallest second divided
-differences (i.e., the smoothest local interpolation). This avoids interpolating
-across discontinuities without requiring a tunable limiter function.
+the linear stencil is extended towards the neighbour with the smallest first
+divided difference (i.e., the smoothest local interpolation). This avoids
+interpolating across discontinuities without requiring a tunable limiter
+function.
 
 The reconstruction operates on primitive variables W = (rho, u, p) and applies
 a positivity floor to density and pressure.
@@ -35,11 +36,11 @@ def eno_reconstruct(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Perform ENO reconstruction on primitive variables with adaptive stencil selection.
 
-    For ENO2, computes first and second divided differences, then selects for
-    each cell and each interface the stencil (left-biased or right-biased)
-    whose second difference is smallest in absolute value. This criterion
-    identifies the smoothest local interpolation and avoids crossing
-    discontinuities. Density and pressure are clamped to 1e-10 for positivity.
+    For ENO2, computes first divided differences and gives each cell the
+    slope of the stencil, {i-1, i} or {i, i+1}, whose first difference is
+    smallest in absolute value. This criterion identifies the smoothest local
+    interpolation and avoids crossing discontinuities. Density and pressure
+    are clamped to 1e-10 for positivity.
 
     Parameters
     ----------
@@ -74,25 +75,12 @@ def eno_reconstruct(
         W_L = W[:, 1:-2]
         W_R = W[:, 2:-1]
     elif eno_order == 2:
+        # Starting from cell i, the linear stencil is extended towards the
+        # neighbour with the smaller first divided difference.
         D = np.diff(W, axis=1)
-        DD = np.diff(D, axis=1)
-
-        n_intf = W.shape[1] - 3
-
-        big = np.full((3, 1), 1e30)
-        DD_ext = np.concatenate([big, DD, big], axis=1)
-
-        D_left_L = D[:, 0:n_intf]
-        D_right_L = D[:, 1:n_intf+1]
-        use_left_L = np.abs(DD_ext[:, 1:n_intf+1]) <= np.abs(DD_ext[:, 2:n_intf+2])
-        slope_L = np.where(use_left_L, D_left_L, D_right_L)
-        W_L = W[:, 1:n_intf+1] + 0.5 * slope_L
-
-        D_left_R = D[:, 1:n_intf+1]
-        D_right_R = D[:, 2:n_intf+2]
-        use_left_R = np.abs(DD_ext[:, 2:n_intf+2]) <= np.abs(DD_ext[:, 3:n_intf+3])
-        slope_R = np.where(use_left_R, D_left_R, D_right_R)
-        W_R = W[:, 2:n_intf+2] - 0.5 * slope_R
+        slope = np.where(np.abs(D[:, :-1]) <= np.abs(D[:, 1:]), D[:, :-1], D[:, 1:])
+        W_L = W[:, 1:-2] + 0.5 * slope[:, :-1]
+        W_R = W[:, 2:-1] - 0.5 * slope[:, 1:]
     else:
         raise ValueError(f"ENO order {eno_order} not supported (use 1 or 2)")
 

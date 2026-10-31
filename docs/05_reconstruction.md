@@ -164,24 +164,15 @@ Pour une reconstruction d'ordre 2 (ENO2), on dispose de deux stencils candidats 
 - **Stencil gauche** : $\{i-1, i\}$ utilisant la différence $D_{i-1} = W_i - W_{i-1}$.
 - **Stencil droit** : $\{i, i+1\}$ utilisant la différence $D_i = W_{i+1} - W_i$.
 
-### Calcul des différences
-
-Les **premières différences** (ou différences finies *forward*) sont :
-
-$$D_i = \mathbf{W}_{i+1} - \mathbf{W}_i$$
-
-Les **secondes différences** (différences divisées d'ordre 2) sont :
-
-$$DD_i = D_{i+1} - D_i = \mathbf{W}_{i+2} - 2\mathbf{W}_{i+1} + \mathbf{W}_i$$
-
 ### Critère de sélection
 
-Le stencil est choisi en comparant les secondes différences de part et d'autre :
+Le polynôme d'ordre 1 se construit en partant de la cellule $i$ et en lui ajoutant **un** voisin. On ajoute celui du côté où la **première différence** est la plus petite en valeur absolue, c'est-à-dire du côté où la solution varie le moins :
 
-$$\text{Si } \lvert DD_{i-1} \rvert \leq \lvert DD_i \rvert \implies \text{stencil gauche (pente } D_{i-1}\text{)}$$
-$$\text{Sinon} \implies \text{stencil droit (pente } D_i\text{)}$$
+$$\text{slope}_i = \begin{cases} D_{i-1} & \text{si } \lvert D_{i-1} \rvert \leq \lvert D_i \rvert \\ D_i & \text{sinon} \end{cases} \qquad D_i = \mathbf{W}_{i+1} - \mathbf{W}_i$$
 
-L'idée est que la seconde différence la plus petite en valeur absolue correspond à la zone la plus lisse.
+Près d'une discontinuité, la différence qui la traverse est grande : le stencil qui la contient est écarté. Ce critère est proche du limiteur minmod (§5.1), à une différence près : minmod annule la pente quand $D_{i-1}$ et $D_i$ sont de signes opposés (extremum local), ENO garde la plus petite des deux. ENO n'écrête donc pas les extrema, mais il n'est pas TVD au sens strict.
+
+**Remarque.** Les **secondes différences** $DD_i = \mathbf{W}_{i+2} - 2\mathbf{W}_{i+1} + \mathbf{W}_i$ servent à l'étape suivante de l'algorithme ENO : choisir le troisième point d'un stencil quadratique (ENO3). Les utiliser pour choisir la pente d'ENO2 donne un schéma différent et instable : une version antérieure de ce code le faisait, et ENO2 divergeait sur le test de Toro 4 et sur la double détente.
 
 ### États reconstruits
 

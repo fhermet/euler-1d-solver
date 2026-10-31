@@ -7,7 +7,7 @@ import pytest
 
 from euler1d.schemes import get_scheme
 from euler1d.solver import run_simulation
-from euler1d.test_cases import near_vacuum, sod_shock_tube
+from euler1d.test_cases import near_vacuum, sod_shock_tube, two_shocks
 
 
 def test_clean_run_reports_ok():
@@ -20,7 +20,8 @@ def test_clean_run_reports_ok():
 @pytest.mark.filterwarnings("ignore:Positivity floor")
 def test_divergence_is_reported_with_last_finite_state():
     with pytest.warns(RuntimeWarning, match="diverg"):
-        result = run_simulation(near_vacuum(400), get_scheme("weno5-roe"))
+        # An unlimited centred scheme cannot survive two strong shocks.
+        result = run_simulation(two_shocks(200), get_scheme("lax-wendroff"))
     assert result.status == "diverged"
     assert np.isfinite(result.times[-1])
     assert result.times[-1] < result.config.time.t_final

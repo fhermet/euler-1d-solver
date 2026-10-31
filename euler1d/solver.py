@@ -6,9 +6,10 @@ computation) produces a right-hand side operator L(U), and an explicit
 Runge-Kutta integrator advances the solution in time.
 
 Five RK integrators are available (RK1 through RK5), ranging from first-order
-Euler explicit to the sixth-stage Dormand-Prince method of order 5.  The
-integrator is chosen automatically to match the spatial order of the numerical
-scheme, ensuring space-time consistency (see docs/06_time_integration.md, §6.7).
+Euler explicit to the sixth-stage Dormand-Prince method of order 5.  By
+default the integrator follows the spatial order up to 3 (RK1, RK2, SSP-RK3);
+higher orders also use SSP-RK3 for stability on discontinuities (see
+docs/06_time_integration.md, §6.7).
 
 The time step is adaptive: it is recomputed every iteration from the CFL
 condition Δt = CFL × Δx / max(|u| + c), guaranteeing that the fastest wave
@@ -212,8 +213,8 @@ def run_simulation(
        integrator is forced to RK1 to avoid double time stepping.
     2. If the caller supplies *time_integrator*, that value is used.
     3. Otherwise ``scheme.default_time_integrator`` is used, which maps the
-       spatial order to the matching RK method (order 1 → RK1, 2 → RK2,
-       3 → SSP-RK3, 4 → RK4, 5 → Dormand-Prince RK5).
+       spatial order to an RK method (order 1 → RK1, 2 → RK2, 3 and above
+       → SSP-RK3; JST uses RK4).
 
     At each iteration the loop:
 

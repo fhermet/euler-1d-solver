@@ -60,11 +60,11 @@ def _single_step(U: np.ndarray, scheme: NumericalScheme, gas: GasProperties,
     * **RK1** -- Forward Euler (1 stage).  Used by first-order flux schemes and
       Lax-Wendroff (which already embeds temporal integration).
     * **RK2** -- Heun's method (2 stages).  Default for MUSCL and ENO2 schemes.
-    * **RK3** -- SSP-RK3 / Shu-Osher (3 stages).  Default for WENO3.  Strong
-      stability preserving.
+    * **RK3** -- SSP-RK3 / Shu-Osher (3 stages).  Default for WENO3 and WENO5.
+      Strong stability preserving.
     * **RK4** -- Classical RK4 (4 stages).  Default for JST.
-    * **RK5** -- Dormand-Prince (6 stages, 5th-order accurate).  Default for
-      WENO5.
+    * **RK5** -- Dormand-Prince (6 stages, 5th-order accurate).  Not SSP;
+      kept for convergence studies on smooth solutions.
 
     Parameters
     ----------

@@ -226,7 +226,7 @@ $$\begin{array}{c\vert cccccc}
 
 ### Utilisation
 
-Dormand-Prince est le choix par défaut pour **WENO5** (variantes JS et Z), assurant que l'erreur temporelle d'ordre 5 est cohérente avec la précision spatiale d'ordre 5.
+Dormand-Prince **n'est pas** SSP. Ce n'est donc pas l'intégrateur par défaut de WENO5 : sur le contact stationnaire à CFL 0,9, WENO5-Rusanov intégré par RK5 développe une oscillation maille à maille qui fait exploser la densité (jusqu'à $\rho \approx -10^7$), alors que SSP-RK3 et même RK4 restent stables. On le réserve aux études de convergence sur solutions régulières, où l'ordre temporel 5 évite que l'erreur en temps ne masque l'erreur en espace.
 
 > **Remarque** : la méthode de Dormand-Prince est aussi la base du solveur adaptatif `ode45` de MATLAB et `dopri5` de SciPy. Dans notre solveur, le pas de temps est contrôlé par la condition CFL et non par un estimateur d'erreur embarqué (embedded method), donc seule la formule d'ordre 5 est utilisée.
 
@@ -242,6 +242,8 @@ $$\text{Ordre global} = \min(\text{ordre spatial},\, \text{ordre temporel})$$
 
 Utiliser un intégrateur RK1 (ordre 1 en temps) avec une reconstruction WENO5 (ordre 5 en espace) limiterait l'ordre global à 1 : toute la précision spatiale serait gaspillée. Inversement, utiliser RK5 avec un flux d'ordre 1 est un surcoût inutile (6 évaluations de flux par pas de temps au lieu d'une).
 
+Ce principe a une limite. Sur une solution discontinue, l'ordre effectif retombe à 1 au voisinage des chocs, quel que soit l'intégrateur : ce qui compte alors est que l'intégrateur ne crée pas d'oscillation, c'est-à-dire qu'il soit SSP. C'est pourquoi WENO5 utilise SSP-RK3 par défaut. Avec $\Delta t \propto \Delta x$, l'erreur temporelle d'ordre 3 finit par dominer sur maillage fin dans une étude de convergence sur solution régulière : il faut alors choisir RK5 explicitement, ou réduire le pas de temps comme $\Delta t \propto \Delta x^{5/3}$.
+
 ### Correspondance ordre spatial / intégrateur
 
 | Ordre spatial | Reconstruction | Intégrateur par défaut | Étages |
@@ -250,7 +252,7 @@ Utiliser un intégrateur RK1 (ordre 1 en temps) avec une reconstruction WENO5 (o
 | 2 | MUSCL, ENO2 | RK2 (Heun) | 2 |
 | 3 | WENO3 (JS, Z) | RK3 (SSP-RK3) | 3 |
 | 4 | JST | RK4 (classique) | 4 |
-| 5 | WENO5 (JS, Z) | RK5 (Dormand-Prince) | 6 |
+| 5 | WENO5 (JS, Z) | RK3 (SSP-RK3) | 3 |
 
 ### Logique de sélection dans le code
 
@@ -269,12 +271,12 @@ L'utilisateur peut toujours forcer un intégrateur différent (par exemple RK3 a
 | Méthode | Étages | Ordre | SSP ? | Schémas spatiaux par défaut |
 |:---|:---:|:---:|:---:|:---|
 | RK1 (Euler explicite) | 1 | 1 | Oui (trivial) | Rusanov, HLL, HLLC, Roe, Godunov, Lax-Friedrichs, Lax-Wendroff |
-| RK2 (Heun) | 2 | 2 | Non | MUSCL, ENO2 |
-| RK3 (SSP-RK3, Shu-Osher) | 3 | 3 | **Oui** ($c = 1$) | WENO3 (JS, Z) |
+| RK2 (Heun) | 2 | 2 | **Oui** ($c = 1$) | MUSCL, ENO2 |
+| RK3 (SSP-RK3, Shu-Osher) | 3 | 3 | **Oui** ($c = 1$) | WENO3, WENO5 (JS, Z) |
 | RK4 (classique) | 4 | 4 | Non | JST |
-| RK5 (Dormand-Prince) | 6 | 5 | Non | WENO5 (JS, Z) |
+| RK5 (Dormand-Prince) | 6 | 5 | Non | Aucun (études de convergence) |
 
-**Coût par pas de temps** : chaque étage nécessite une évaluation complète de l'opérateur spatial $\mathbf{L}(\mathbf{U})$ (conditions aux limites + reconstruction + flux + différenciation). RK5 coûte donc 6 fois plus qu'Euler explicite par pas de temps, mais la précision d'ordre 5 permet d'utiliser des maillages plus grossiers pour une erreur donnée.
+**Coût par pas de temps** : chaque étage nécessite une évaluation complète de l'opérateur spatial $\mathbf{L}(\mathbf{U})$ (conditions aux limites + reconstruction + flux + différenciation). RK5 coûte donc 6 fois plus qu'Euler explicite par pas de temps ; sa précision d'ordre 5 n'est utile que sur des solutions régulières.
 
 ---
 
