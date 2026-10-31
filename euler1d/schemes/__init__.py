@@ -130,7 +130,9 @@ _WENO5_ENTRIES: dict[str, tuple[str, str]] = {
 def get_scheme(name: str, **kwargs) -> NumericalScheme:
     """Instantiate a scheme by name.
 
-    For MUSCL schemes, pass limiter="minmod" etc. via kwargs.
+    For MUSCL schemes, pass limiter="minmod" etc. via kwargs.  Every
+    reconstruction accepts variables="primitive" (default), "conservative"
+    or "characteristic".
     """
     key = name.lower()
     if key in _MUSCL_ENTRIES:
@@ -138,13 +140,13 @@ def get_scheme(name: str, **kwargs) -> NumericalScheme:
         return make_muscl_scheme(riemann, **kwargs)
     if key in _ENO_ENTRIES:
         riemann, eno_order = _ENO_ENTRIES[key]
-        return make_eno_scheme(riemann, eno_order)
+        return make_eno_scheme(riemann, eno_order, **kwargs)
     if key in _WENO3_ENTRIES:
         riemann, variant = _WENO3_ENTRIES[key]
-        return make_weno3_scheme(riemann, variant=variant)
+        return make_weno3_scheme(riemann, variant=variant, **kwargs)
     if key in _WENO5_ENTRIES:
         riemann, variant = _WENO5_ENTRIES[key]
-        return make_weno5_scheme(riemann, variant=variant)
+        return make_weno5_scheme(riemann, variant=variant, **kwargs)
     if key not in SCHEME_REGISTRY:
         raise ValueError(
             f"Unknown scheme {name!r}. Available: {available_schemes()}"

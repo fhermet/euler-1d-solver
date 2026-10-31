@@ -25,21 +25,30 @@ from __future__ import annotations
 
 import numpy as np
 
-from euler1d.config import GasProperties
-from euler1d.physics import conservative_to_primitive, primitive_to_conservative
 from euler1d.schemes.base import NumericalScheme
-from euler1d.schemes.reconstruction.limiters import get_limiter
+from euler1d.schemes.reconstruction.base import ReconstructedScheme
+from euler1d.schemes.reconstruction.limiters import LimiterFn, get_limiter
+from euler1d.schemes.reconstruction.variables import reconstruct_faces
+
+
+def muscl_kernel(v: np.ndarray, limiter_fn: LimiterFn) -> tuple[np.ndarray, np.ndarray]:
+    """Limited linear reconstruction on stencils v = (W_{j-1}, W_j, W_{j+1}, W_{j+2}).
+
+    The slope of cell i is phi(r_i) * (W_{i+1} - W_i) with
+    r_i = (W_i - W_{i-1}) / (W_{i+1} - W_i).  The left state of interface
+    j+1/2 comes from cell j, the right state from cell j+1.
+    """
+    eps = 1e-30
+    d0, d1, d2 = v[1] - v[0], v[2] - v[1], v[3] - v[2]
+    slope_j = limiter_fn(d0 / (d1 + eps)) * d1
+    slope_jp1 = limiter_fn(d1 / (d2 + eps)) * d2
+    return v[1] + 0.5 * slope_j, v[2] - 0.5 * slope_jp1
 
 
 def muscl_reconstruct(
-    U: np.ndarray, gamma: float, limiter_fn,
+    U: np.ndarray, gamma: float, limiter_fn: LimiterFn,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Perform MUSCL piecewise-linear reconstruction with slope limiting.
-
-    Converts to primitive variables, computes forward differences and slope
-    ratios, applies the limiter function to obtain limited slopes, then
-    extrapolates to interface states. Density and pressure are clamped to a
-    positivity floor of 1e-10 to prevent non-physical states.
+    """MUSCL reconstruction on primitive variables.
 
     Parameters
     ----------
@@ -48,47 +57,19 @@ def muscl_reconstruct(
     gamma : float
         Ratio of specific heats.
     limiter_fn : callable
-        Slope limiter function phi(r) -> phi_values. Must accept and return
-        numpy arrays. See ``limiters.py`` for available limiters.
+        Slope limiter phi(r).  See ``limiters.py``.
 
     Returns
     -------
-    UL : ndarray, shape (3, N + 1)
-        Reconstructed left states at each of the N+1 interfaces.
-    UR : ndarray, shape (3, N + 1)
-        Reconstructed right states at each of the N+1 interfaces.
-
-    See Also
-    --------
-    limiters : Slope limiter functions (minmod, van_leer, superbee, mc).
-    MUSCLScheme : Scheme class that pairs this reconstruction with a Riemann solver.
+    UL, UR : ndarray, shape (3, N + 1)
+        Left and right conservative states at each interface.
     """
-    rho, u, p = conservative_to_primitive(U, gamma)
-    W = np.array([rho, u, p])
-
-    dW = np.diff(W, axis=1)
-
-    eps = 1e-30
-    r = dW[:, :-1] / (dW[:, 1:] + eps)
-
-    phi = limiter_fn(r)
-    sigma = phi * dW[:, 1:]
-
-    W_L = W[:, 1:-2] + 0.5 * sigma[:, :-1]
-    W_R = W[:, 2:-1] - 0.5 * sigma[:, 1:]
-
-    W_L[0] = np.maximum(W_L[0], 1e-10)
-    W_L[2] = np.maximum(W_L[2], 1e-10)
-    W_R[0] = np.maximum(W_R[0], 1e-10)
-    W_R[2] = np.maximum(W_R[2], 1e-10)
-
-    UL = primitive_to_conservative(W_L[0], W_L[1], W_L[2], gamma)
-    UR = primitive_to_conservative(W_R[0], W_R[1], W_R[2], gamma)
-
-    return UL, UR
+    return reconstruct_faces(
+        U, gamma, 1.0, lambda v, dx: muscl_kernel(v, limiter_fn), 2, "primitive"
+    )
 
 
-class MUSCLScheme(NumericalScheme):
+class MUSCLScheme(ReconstructedScheme):
     """Second-order MUSCL scheme combining slope-limited reconstruction with a Riemann solver.
 
     This class implements the composition principle: the MUSCL reconstruction
@@ -103,21 +84,34 @@ class MUSCLScheme(NumericalScheme):
         The underlying first-order Riemann flux solver (e.g., HLLC, Roe).
     limiter : str, default "van-leer"
         Name of the slope limiter. See ``limiters.available_limiters()``.
+    variables : str, default "primitive"
+        Reconstructed variables: "primitive", "conservative" or
+        "characteristic".
 
     See Also
     --------
-    muscl_reconstruct : The reconstruction function used internally.
+    muscl_kernel : The 1D reconstruction formula.
     make_muscl_scheme : Factory function to create a MUSCLScheme by solver name.
     """
 
-    def __init__(self, riemann_solver: NumericalScheme, limiter: str = "van-leer"):
-        self._riemann = riemann_solver
+    def __init__(
+        self,
+        riemann_solver: NumericalScheme,
+        limiter: str = "van-leer",
+        variables: str = "primitive",
+    ):
+        super().__init__(riemann_solver, variables)
         self._limiter_name = limiter
         self._limiter_fn = get_limiter(limiter)
 
     @property
+    def label(self) -> str:
+        return "MUSCL"
+
+    @property
     def name(self) -> str:
-        return f"MUSCL-{self._riemann.name} ({self._limiter_name})"
+        suffix = "" if self._variables == "primitive" else f" [{self._variables}]"
+        return f"MUSCL-{self._riemann.name} ({self._limiter_name}){suffix}"
 
     @property
     def order(self) -> int:
@@ -127,19 +121,13 @@ class MUSCLScheme(NumericalScheme):
     def n_ghost(self) -> int:
         return 2
 
-    def compute_riemann_flux(
-        self, UL: np.ndarray, UR: np.ndarray, gas: GasProperties, dx: float, dt: float
-    ) -> np.ndarray:
-        return self._riemann.compute_riemann_flux(UL, UR, gas, dx, dt)
-
-    def compute_fluxes(
-        self, U: np.ndarray, gas: GasProperties, dx: float, dt: float
-    ) -> np.ndarray:
-        UL, UR = muscl_reconstruct(U, gas.gamma, self._limiter_fn)
-        return self.compute_riemann_flux(UL, UR, gas, dx, dt)
+    def kernel(self, v: np.ndarray, dx: float) -> tuple[np.ndarray, np.ndarray]:
+        return muscl_kernel(v, self._limiter_fn)
 
 
-def make_muscl_scheme(riemann_name: str, limiter: str = "van-leer") -> MUSCLScheme:
+def make_muscl_scheme(
+    riemann_name: str, limiter: str = "van-leer", variables: str = "primitive"
+) -> MUSCLScheme:
     """Factory to create a MUSCLScheme from a Riemann solver name.
 
     Parameters
@@ -148,6 +136,8 @@ def make_muscl_scheme(riemann_name: str, limiter: str = "van-leer") -> MUSCLSche
         Name of the Riemann flux solver (e.g., "hllc", "roe").
     limiter : str, default "van-leer"
         Name of the slope limiter.
+    variables : str, default "primitive"
+        Reconstructed variables.
 
     Returns
     -------
@@ -155,4 +145,4 @@ def make_muscl_scheme(riemann_name: str, limiter: str = "van-leer") -> MUSCLSche
         Configured MUSCL scheme ready for use in the solver.
     """
     from euler1d.schemes.flux import get_flux_solver
-    return MUSCLScheme(get_flux_solver(riemann_name), limiter=limiter)
+    return MUSCLScheme(get_flux_solver(riemann_name), limiter=limiter, variables=variables)
