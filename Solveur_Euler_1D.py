@@ -21,9 +21,10 @@ from euler1d.physics import conservative_to_primitive
 from euler1d.results import (
     compute_exact_solution,
     convergence_study,
+    errors_at_round_off,
     estimate_order,
+    exact_cell_averages,
 )
-from euler1d.riemann import sample_riemann
 from euler1d.schemes import get_scheme
 from euler1d.solver import run_simulation
 from ui_common import (
@@ -297,26 +298,8 @@ def _build_config(test_case_name: str, n_cells: int, cfl: float, gamma: float) -
 def _compute_exact_at_time(
     config: SimulationConfig, t: float
 ) -> pd.DataFrame:
-    """Compute exact solution at arbitrary time t."""
-    mesh = config.mesh
-    gas = config.gas
-    prob = config.problem
-    dx = mesh.dx
-    x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
-
-    if isinstance(prob, SmoothProblem):
-        rho, u, p = prob.exact_fn(x, t, gas.gamma)
-    elif isinstance(prob, RiemannProblem):
-        rho, u, p = sample_riemann(
-            x, t,
-            prob.left.rho, prob.left.u, prob.left.p,
-            prob.right.rho, prob.right.u, prob.right.p,
-            gas.gamma,
-            x0=prob.x_discontinuity,
-        )
-    else:
-        raise ValueError(f"Unknown problem type: {type(prob)}")
-
+    """Cell averages of the exact solution at time t (see exact_cell_averages)."""
+    x, rho, u, p = exact_cell_averages(config, t)
     return pd.DataFrame({"x": x, "rho": rho, "u": u, "p": p})
 
 
@@ -698,6 +681,7 @@ with tab1:
             with st.spinner("Computing convergence..."):
                 conv_dfs = []
                 order_rows = []
+                round_off = set()
                 for sname, limiter, ti in selected:
                     df = cached_convergence(
                         test_case_name, cfl, gamma, sname, limiter, n_cells_list, ti,
@@ -722,7 +706,11 @@ with tab1:
                         row = {"Scheme": display_name}
                         for norm in NORMS:
                             err = var_data[norm].values
-                            row[f"Order ({norm})"] = f"{estimate_order(dx_vals, err):.2f}"
+                            if errors_at_round_off(err):
+                                row[f"Order ({norm})"] = "exact (round-off)"
+                                round_off.add(display_name)
+                            else:
+                                row[f"Order ({norm})"] = f"{estimate_order(dx_vals, err):.2f}"
                         order_rows.append(row)
 
                 fig = _make_convergence_figure(
@@ -733,6 +721,16 @@ with tab1:
 
                 st.subheader("Estimated convergence orders")
                 st.dataframe(pd.DataFrame(order_rows), width="stretch", hide_index=True)
+                if round_off:
+                    st.info(
+                        f"**{', '.join(sorted(round_off))}**: errors at round-off level "
+                        f"(below 1e-12), so no order can be measured and the points "
+                        f"do not appear on the log scale. This is a result, not a "
+                        f"failure: either the scheme reproduces the exact solution "
+                        f"(a stationary contact with HLLC, Roe, Godunov or AUSM+, "
+                        f"see docs §8.4) or the variable is constant in this case "
+                        f"(u and p in the entropy wave)."
+                    )
     else:
         st.info("Select at least one flux and one reconstruction.")
 

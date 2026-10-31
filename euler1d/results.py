@@ -18,7 +18,12 @@ import numpy as np
 import pandas as pd
 
 from euler1d.config import RiemannProblem, SimulationConfig, SmoothProblem
-from euler1d.physics import cell_average, conservative_to_primitive, sound_speed
+from euler1d.physics import (
+    cell_average,
+    conservative_to_primitive,
+    primitive_to_conservative,
+    sound_speed,
+)
 from euler1d.riemann import sample_riemann
 from euler1d.solver import SolverResult, run_simulation
 
@@ -62,6 +67,45 @@ def result_to_dataframe(result: SolverResult, time_index: int = -1) -> pd.DataFr
     })
 
 
+# Sub-cells per cell for averaging a discontinuous exact solution.
+_RIEMANN_SUBCELLS = 64
+
+
+def exact_cell_averages(
+    config: SimulationConfig, t: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Cell centres and primitive state of the cell averages of the exact solution.
+
+    The scheme evolves cell averages, so it must be compared with the cell
+    averages of the exact solution, not with its values at the cell centres.
+    Smooth problems use Gauss quadrature (physics.cell_average).  Riemann
+    solutions are averaged over 64 equal sub-cells: exact where the solution
+    is piecewise constant and a jump sits on a sub-cell boundary, as for the
+    cell holding the initial discontinuity of a stationary contact, which
+    the scheme keeps as a mixed cell.
+    """
+    mesh, gamma, prob = config.mesh, config.gas.gamma, config.problem
+    dx = mesh.dx
+    x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
+
+    if isinstance(prob, SmoothProblem):
+        U = cell_average(lambda s: prob.exact_fn(s, t, gamma), x, dx, gamma)
+    else:
+        offsets = ((np.arange(_RIEMANN_SUBCELLS) + 0.5) / _RIEMANN_SUBCELLS - 0.5) * dx
+        xs = (x[:, None] + offsets[None, :]).ravel()
+        rho, u, p = sample_riemann(
+            xs, t,
+            prob.left.rho, prob.left.u, prob.left.p,
+            prob.right.rho, prob.right.u, prob.right.p,
+            gamma, x0=prob.x_discontinuity,
+        )
+        U = primitive_to_conservative(rho, u, p, gamma).reshape(3, mesh.n_cells, -1).mean(axis=2)
+    # The velocity is undefined (NaN) in a cell that is entirely vacuum.
+    with np.errstate(invalid="ignore", divide="ignore"):
+        rho, u, p = conservative_to_primitive(U, gamma)
+    return x, rho, u, p
+
+
 def compute_exact_solution(config: SimulationConfig) -> pd.DataFrame:
     """Compute the exact solution at t_final on the mesh.
 
@@ -78,29 +122,11 @@ def compute_exact_solution(config: SimulationConfig) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Columns: x, rho, u, p, E, mach -- evaluated at cell centres.
+        Columns: x, rho, u, p, E, mach -- cell averages of the exact solution
+        (see :func:`exact_cell_averages`), at the cell centres x.
     """
-    mesh = config.mesh
     gas = config.gas
-    prob = config.problem
-    dx = mesh.dx
-    x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
-
-    if isinstance(prob, SmoothProblem):
-        # Cell averages, like the numerical solution (see physics.cell_average).
-        t = config.time.t_final
-        rho, u, p = conservative_to_primitive(
-            cell_average(lambda s: prob.exact_fn(s, t, gas.gamma), x, dx, gas.gamma),
-            gas.gamma,
-        )
-    else:
-        rho, u, p = sample_riemann(
-            x, config.time.t_final,
-            prob.left.rho, prob.left.u, prob.left.p,
-            prob.right.rho, prob.right.u, prob.right.p,
-            gas.gamma,
-            x0=prob.x_discontinuity,
-        )
+    x, rho, u, p = exact_cell_averages(config, config.time.t_final)
     E = p / gas.gm1 + 0.5 * rho * u**2
     # The Mach number is undefined (NaN) in a vacuum region (rho = p = 0).
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -256,6 +282,21 @@ def convergence_study(
                 "scheme": scheme.name,
             })
     return pd.DataFrame(rows)
+
+
+# Below this error (variables of order 1), differences are round-off.
+ROUND_OFF_ERROR = 1e-12
+
+
+def errors_at_round_off(error_values: np.ndarray) -> bool:
+    """True if every error is at round-off level, so no order can be measured.
+
+    This is the expected result, not a failure, when the exact solution is
+    reproduced by the scheme (stationary contact with HLLC, Roe, Godunov,
+    AUSM+) or when the variable is constant (u and p in the entropy wave).
+    The log-log fit would return NaN or a meaningless (often negative) slope.
+    """
+    return bool(np.max(error_values) < ROUND_OFF_ERROR)
 
 
 def estimate_order(dx_values: np.ndarray, error_values: np.ndarray) -> float:
