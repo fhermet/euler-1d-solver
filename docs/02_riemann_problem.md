@@ -321,7 +321,21 @@ $$
 
 **Interprétation physique.** Le premier terme $\frac{1}{2}(p_L + p_R)$ est la moyenne arithmétique des pressions. Le second terme est une **correction acoustique** : si les fluides s'éloignent ($u_R - u_L > 0$, divergence), la pression diminue (détente) ; s'ils convergent ($u_R - u_L < 0$), la pression augmente (compression). L'impédance acoustique $\rho a$ pondère cette correction. Le dénominateur $\rho_L + \rho_R$ normalise par la masse totale.
 
-L'estimation est tronquée à une valeur positive minimale ($10^{-14}$) pour éviter les pressions négatives non physiques.
+**Choix adaptatif (Toro, §9.5.1).** PVRS n'est fiable que si les deux pressions sont proches. Le code ne l'utilise que si $p_{\max}/p_{\min} < 2$ et $p_{\min} \leq p_{\text{PV}} \leq p_{\max}$. Sinon :
+
+- si $p_{\text{PV}} < p_{\min}$ (deux détentes probables), on prend l'estimation **TRRS** (*Two-Rarefaction Riemann Solver*), exacte quand les deux ondes sont des détentes :
+
+$$
+p_{\text{TR}} = \left( \frac{a_L + a_R - \frac{\gamma-1}{2}(u_R - u_L)}{a_L / p_L^{z} + a_R / p_R^{z}} \right)^{1/z}, \qquad z = \frac{\gamma - 1}{2\gamma}
+$$
+
+- sinon (deux chocs probables), on prend l'estimation **TSRS** (*Two-Shock Riemann Solver*) :
+
+$$
+p_{\text{TS}} = \frac{g_L(p_0)\, p_L + g_R(p_0)\, p_R - (u_R - u_L)}{g_L(p_0) + g_R(p_0)}, \qquad g_K(p) = \sqrt{\frac{A_K}{p + B_K}}, \quad p_0 = \max(0, p_{\text{PV}})
+$$
+
+Ce choix n'est pas un raffinement : sur le problème 123 (double détente, §8.3), $p_{\text{PV}}$ est négatif. Partir d'une pression quasi nulle fait échouer Newton, alors que TRRS donne directement la solution exacte $p^\ast = 0{,}00189$.
 
 ### Itération de Newton-Raphson
 
@@ -354,8 +368,10 @@ Elle s'obtient en dérivant $(p/p_K)^{(\gamma-1)/(2\gamma)}$ par rapport à $p$,
 Le critère d'arrêt est un critère **relatif** :
 
 $$
-\frac{\lvert p^{(k+1)} - p^{(k)} \rvert}{\max(1, \lvert p^{(k+1)} \rvert)} < \varepsilon
+\frac{2\,\lvert p^{(k+1)} - p^{(k)} \rvert}{p^{(k+1)} + p^{(k)}} < \varepsilon
 $$
+
+Un critère absolu (par exemple normalisé par $\max(1, p)$) serait trompeur ici : lorsque $p^\ast \ll 1$, comme près du vide, il s'arrête dès la première itération sur une pression fausse. Si Newton ne converge pas en 50 itérations, le solveur lève une erreur au lieu de renvoyer une valeur non convergée.
 
 avec $\varepsilon = 10^{-10}$ par défaut. La convergence est **quadratique** (typique de Newton) : le nombre de décimales exactes double à chaque itération. En pratique, 3 à 6 itérations suffisent.
 
@@ -493,7 +509,7 @@ Les concepts mathématiques de ce chapitre sont implémentés dans le module [`e
 | Sélection de branche | §2.5 | `_f_side()` |
 | Équation de pression $f(p^\ast)$ | §2.5 | `_f_total()` |
 | Dérivée $f'(p^\ast)$ | §2.6 | `_df_total()`, `_df_dp_side()` |
-| Estimation initiale PVRS | §2.6 | `_pressure_guess_pvrs()` |
+| Estimation initiale PVRS / TRRS / TSRS | §2.6 | `_pressure_guess()` |
 | Détection du vide | §2.6 | `_vacuum_will_form()` |
 | Itération de Newton | §2.6 | `solve_p_star()` |
 | Vitesse $u^\ast$ | §2.5 | `compute_u_star()` |

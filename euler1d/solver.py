@@ -25,6 +25,7 @@ euler1d.boundary : Ghost-cell boundary conditions.
 from __future__ import annotations
 
 import time
+import warnings
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -61,6 +62,15 @@ class SolverResult:
     wall_time : float
         Wall-clock time of the simulation loop in seconds, useful for
         benchmarking scheme performance.
+    status : str
+        ``"ok"`` if ``t_final`` was reached, ``"diverged"`` if a non-finite
+        state appeared.  On divergence the last snapshot is the last finite
+        state, recorded at the time it was reached.
+    floor_events : int
+        Number of cell corrections made by the positivity floor.  Non-zero
+        means the scheme alone produced a non-physical state.
+    floor_energy : float
+        Total energy (integrated over the domain) injected by the floor.
     """
 
     x: np.ndarray
@@ -69,6 +79,9 @@ class SolverResult:
     scheme_name: str = ""
     config: SimulationConfig | None = None
     wall_time: float = 0.0
+    status: str = "ok"
+    floor_events: int = 0
+    floor_energy: float = 0.0
 
 
 def _compute_rhs(
@@ -124,6 +137,58 @@ def _compute_rhs(
 
 
 TIME_INTEGRATORS = ("RK1", "RK2", "RK3", "RK4", "RK5")
+
+# Positivity floor on density and internal energy (see run_simulation).
+_FLOOR = 1e-10
+
+
+def _rk_step(
+    U: np.ndarray, rk: str, rhs: Callable[[np.ndarray], np.ndarray]
+) -> np.ndarray:
+    """Advance U by one time step; *rhs* returns Δt·L(U)."""
+    k1 = rhs(U)
+    if rk == "RK1":
+        return U + k1
+    if rk == "RK2":
+        k2 = rhs(U + k1)
+        return U + 0.5 * (k1 + k2)
+    if rk == "RK3":
+        # SSP-RK3 (Shu-Osher)
+        U1 = U + k1
+        U2 = 0.75 * U + 0.25 * (U1 + rhs(U1))
+        return (1.0 / 3.0) * U + (2.0 / 3.0) * (U2 + rhs(U2))
+    if rk == "RK4":
+        k2 = rhs(U + 0.5 * k1)
+        k3 = rhs(U + 0.5 * k2)
+        k4 = rhs(U + k3)
+        return U + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+    # RK5 — Dormand-Prince (5th order, 6 stages)
+    k2 = rhs(U + (1.0/5.0) * k1)
+    k3 = rhs(U + (3.0/40.0) * k1 + (9.0/40.0) * k2)
+    k4 = rhs(U + (44.0/45.0) * k1 - (56.0/15.0) * k2 + (32.0/9.0) * k3)
+    k5 = rhs(U + (19372.0/6561.0) * k1 - (25360.0/2187.0) * k2
+             + (64448.0/6561.0) * k3 - (212.0/729.0) * k4)
+    k6 = rhs(U + (9017.0/3168.0) * k1 - (355.0/33.0) * k2
+             + (46732.0/5247.0) * k3 + (49.0/176.0) * k4
+             - (5103.0/18656.0) * k5)
+    return U + (35.0/384.0) * k1 + (500.0/1113.0) * k3 \
+             + (125.0/192.0) * k4 - (2187.0/6784.0) * k5 \
+             + (11.0/84.0) * k6
+
+
+def _apply_positivity_floor(U: np.ndarray) -> tuple[int, float]:
+    """Clip density and internal energy in place; return (cells, energy added).
+
+    The correction is not conservative: it adds mass and energy.  Callers
+    must report it rather than hide it.
+    """
+    rho_low = U[0] < _FLOOR
+    U[0] = np.maximum(U[0], _FLOOR)
+    ke = 0.5 * U[1]**2 / U[0]
+    e_low = U[2] - ke < _FLOOR
+    E_old = U[2].copy()
+    U[2] = np.where(e_low, ke + _FLOOR, U[2])
+    return int(np.count_nonzero(rho_low | e_low)), float((U[2] - E_old).sum())
 
 
 def run_simulation(
@@ -226,20 +291,22 @@ def run_simulation(
 
     t_start = time.perf_counter()
 
-    while t < t_final:
-        # Detect divergence (NaN in solution)
-        if not np.isfinite(U).all():
-            import warnings
-            warnings.warn(
-                f"Solution diverged at t={t:.6e} (NaN/Inf detected). "
-                f"Saving last valid state.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            break
+    def diverge(reason: str) -> None:
+        result.status = "diverged"
+        warnings.warn(
+            f"Solution diverged at t={t:.6e} ({reason}). "
+            f"Returning the last finite state.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
+    while t < t_final:
         # Compute time step
-        s_max = max_wave_speed(U, gas.gamma)
+        with np.errstate(invalid="ignore"):
+            s_max = max_wave_speed(U, gas.gamma)
+        if not np.isfinite(s_max):
+            diverge("non-finite wave speed")
+            break
         if s_max < 1e-14:
             s_max = 1e-14
         if tc.dt_fixed is not None:
@@ -251,45 +318,21 @@ def run_simulation(
         if t + dt > t_final:
             dt = t_final - t
 
-        k1 = _compute_rhs(U, scheme, gas, dx, dt, config.bc_type)
-        if rk == "RK1":
-            U = U + k1
-        elif rk == "RK2":
-            k2 = _compute_rhs(U + k1, scheme, gas, dx, dt, config.bc_type)
-            U = U + 0.5 * (k1 + k2)
-        elif rk == "RK3":
-            # SSP-RK3 (Shu-Osher)
-            U1 = U + k1
-            k2 = _compute_rhs(U1, scheme, gas, dx, dt, config.bc_type)
-            U2 = 0.75 * U + 0.25 * (U1 + k2)
-            k3 = _compute_rhs(U2, scheme, gas, dx, dt, config.bc_type)
-            U = (1.0 / 3.0) * U + (2.0 / 3.0) * (U2 + k3)
-        elif rk == "RK4":
-            k2 = _compute_rhs(U + 0.5 * k1, scheme, gas, dx, dt, config.bc_type)
-            k3 = _compute_rhs(U + 0.5 * k2, scheme, gas, dx, dt, config.bc_type)
-            k4 = _compute_rhs(U + k3, scheme, gas, dx, dt, config.bc_type)
-            U = U + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
-        else:  # RK5 — Dormand-Prince (5th order, 6 stages)
-            rhs = lambda v: _compute_rhs(v, scheme, gas, dx, dt, config.bc_type)
-            k2 = rhs(U + (1.0/5.0) * k1)
-            k3 = rhs(U + (3.0/40.0) * k1 + (9.0/40.0) * k2)
-            k4 = rhs(U + (44.0/45.0) * k1 - (56.0/15.0) * k2 + (32.0/9.0) * k3)
-            k5 = rhs(U + (19372.0/6561.0) * k1 - (25360.0/2187.0) * k2
-                     + (64448.0/6561.0) * k3 - (212.0/729.0) * k4)
-            k6 = rhs(U + (9017.0/3168.0) * k1 - (355.0/33.0) * k2
-                     + (46732.0/5247.0) * k3 + (49.0/176.0) * k4
-                     - (5103.0/18656.0) * k5)
-            U = U + (35.0/384.0) * k1 + (500.0/1113.0) * k3 \
-                  + (125.0/192.0) * k4 - (2187.0/6784.0) * k5 \
-                  + (11.0/84.0) * k6
+        with np.errstate(invalid="ignore", divide="ignore", over="ignore"):
+            U_new = _rk_step(
+                U, rk, lambda v: _compute_rhs(v, scheme, gas, dx, dt, config.bc_type)
+            )
+        if not np.isfinite(U_new).all():
+            diverge("NaN/Inf in the updated state")
+            break
 
-        # Positivity floor: prevent negative density/pressure from crashing
-        # the simulation (can happen with schemes lacking entropy fix).
-        _FLOOR = 1e-10
-        U[0] = np.maximum(U[0], _FLOOR)  # rho >= floor
-        ke = 0.5 * U[1]**2 / U[0]        # kinetic energy
-        internal = U[2] - ke              # internal energy = E - 0.5*rho*u^2
-        U[2] = np.where(internal < _FLOOR, ke + _FLOOR, U[2])
+        # Positivity floor: keeps schemes without positivity guarantee
+        # running, at the price of a non-conservative correction that is
+        # counted and reported below.
+        n_cells, energy = _apply_positivity_floor(U_new)
+        result.floor_events += n_cells
+        result.floor_energy += energy * dx
+        U = U_new
 
         t += dt
 
@@ -305,10 +348,19 @@ def run_simulation(
         if progress_callback is not None:
             progress_callback(min(t / t_final, 1.0))
 
-    # If no snapshots were recorded (e.g. early divergence), save current state
-    if not result.snapshots:
+    # On divergence, or if no snapshot was recorded, end with the last finite state
+    if result.status == "diverged" or not result.snapshots:
         result.times.append(t)
         result.snapshots.append(U.copy())
+
+    if result.floor_events:
+        warnings.warn(
+            f"Positivity floor applied {result.floor_events} times "
+            f"(energy injected: {result.floor_energy:.3e}). The scheme alone "
+            f"produced negative density or pressure.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     result.wall_time = time.perf_counter() - t_start
     return result

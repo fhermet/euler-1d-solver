@@ -6,7 +6,7 @@ composed of three waves (two acoustic, one contact). The solution procedure
 is:
 
 1. Solve a nonlinear scalar equation for the star-region pressure p*
-   using Newton-Raphson iteration (PVRS initial guess).
+   using Newton-Raphson iteration (adaptive PVRS/TRRS/TSRS initial guess).
 2. Derive the star-region velocity u* and densities rho*_L, rho*_R.
 3. Sample the full solution at any position using the self-similar
    variable xi = x/t and an optimized decision tree.
@@ -147,8 +147,38 @@ def _pressure_guess_pvrs(
     """
     aL = _sound_speed_scalar(rhol, pl, gamma)
     aR = _sound_speed_scalar(rhor, pr, gamma)
-    pPV = 0.5 * (pl + pr) - 0.5 * (ur - ul) * (rhol * aL + rhor * aR) / (rhol + rhor)
-    return max(1e-14, pPV)
+    return 0.5 * (pl + pr) - 0.5 * (ur - ul) * (rhol * aL + rhor * aR) / (rhol + rhor)
+
+
+def _pressure_guess(
+    rhol: float, ul: float, pl: float,
+    rhor: float, ur: float, pr: float,
+    gamma: float,
+) -> float:
+    """Adaptive initial guess for p* (Toro 2009, §9.5.1).
+
+    PVRS is kept when the pressure ratio is small and the PVRS estimate lies
+    between the data pressures. Otherwise the two-rarefaction (TRRS) or
+    two-shock (TSRS) approximations are used. TRRS is exact for two
+    rarefactions, which matters near vacuum where PVRS turns negative and
+    Newton started from a tiny pressure stalls.
+    """
+    p_min, p_max = min(pl, pr), max(pl, pr)
+    p_pv = _pressure_guess_pvrs(rhol, ul, pl, rhor, ur, pr, gamma)
+    if p_max / p_min < 2.0 and p_min <= p_pv <= p_max:
+        return p_pv
+
+    aL = _sound_speed_scalar(rhol, pl, gamma)
+    aR = _sound_speed_scalar(rhor, pr, gamma)
+    if p_pv < p_min:
+        z = (gamma - 1.0) / (2.0 * gamma)
+        num = aL + aR - 0.5 * (gamma - 1.0) * (ur - ul)
+        return (num / (aL / pl**z + aR / pr**z)) ** (1.0 / z)
+
+    p0 = max(0.0, p_pv)
+    gL = math.sqrt(2.0 / ((gamma + 1.0) * rhol) / (p0 + (gamma - 1.0) / (gamma + 1.0) * pl))
+    gR = math.sqrt(2.0 / ((gamma + 1.0) * rhor) / (p0 + (gamma - 1.0) / (gamma + 1.0) * pr))
+    return max(1e-14, (gL * pl + gR * pr - (ur - ul)) / (gL + gR))
 
 
 def _vacuum_will_form(
@@ -179,14 +209,15 @@ def solve_p_star(
 ) -> float:
     """Solve for the star-region pressure p* using Newton-Raphson iteration.
 
-    Starting from a PVRS initial guess, iteratively finds the root of the
+    Starting from an adaptive initial guess, iteratively finds the root of the
     nonlinear pressure equation f(p*) = f_L(p*) + f_R(p*) + (u_R - u_L) = 0.
     This equation encodes the compatibility between the left and right waves:
     the velocity changes across both waves must bridge the initial velocity
     difference. Convergence is quadratic, typically requiring 3-6 iterations.
 
     Raises ValueError if a vacuum would form (states separating too fast
-    for any positive pressure solution to exist).
+    for any positive pressure solution to exist), and RuntimeError if
+    Newton does not converge.
 
     See docs/02_riemann_problem.md §2.5-§2.6 for the pressure equation
     derivation, Newton update formulas, and convergence criterion.
@@ -216,18 +247,21 @@ def solve_p_star(
             "Vacuum forms in this Riemann problem: no positive p_star exists."
         )
 
-    p = _pressure_guess_pvrs(rhol, ul, pl, rhor, ur, pr, gamma)
+    p = _pressure_guess(rhol, ul, pl, rhor, ur, pr, gamma)
     for _ in range(max_iter):
         f = _f_total(p, rhol, ul, pl, rhor, ur, pr, gamma)
         df = _df_total(p, rhol, ul, pl, rhor, ur, pr, gamma)
         if abs(df) < 1e-20:
             break
-        p_new = p - f / df
-        p_new = max(1e-14, p_new)
-        if abs(p_new - p) < tol * max(1.0, abs(p_new)):
+        p_new = max(1e-14, p - f / df)
+        # Relative change (Toro 2009, §4.3): an absolute test stops at once
+        # when p* is small.
+        if 2.0 * abs(p_new - p) / (p_new + p) < tol:
             return p_new
         p = p_new
-    return p
+    raise RuntimeError(
+        f"Newton iteration for p_star did not converge in {max_iter} iterations."
+    )
 
 
 def compute_u_star(

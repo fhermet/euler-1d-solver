@@ -7,3 +7,5 @@ __pycache__/
 everything-claude-code/
 docs/superpowers/
 CLAUDE.md
+.venv/
+*.serena

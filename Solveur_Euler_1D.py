@@ -315,15 +315,42 @@ def cached_simulate(
     limiter: str | None,
     n_snapshots: int,
     time_integrator: str = "Auto",
-) -> tuple[list, list, float, str]:
-    """Run a simulation and return (snapshots_as_lists, times, wall_time, display_name)."""
+) -> tuple[list, list, float, str, dict]:
+    """Run a simulation.
+
+    Returns (snapshots_as_lists, times, wall_time, display_name, diagnostics),
+    where diagnostics holds the run status and the positivity-floor counters.
+    """
     config = _build_config(test_case_name, n_cells, cfl, gamma)
     kwargs = {"limiter": limiter} if limiter and scheme_name.startswith("muscl") else {}
     scheme = get_scheme(scheme_name, **kwargs)
     rk = None if time_integrator == "Auto" else time_integrator
     result = run_simulation(config, scheme, n_snapshots=n_snapshots, time_integrator=rk)
     snapshots = [s.tolist() for s in result.snapshots]
-    return snapshots, result.times, result.wall_time, scheme.name
+    diagnostics = {
+        "status": result.status,
+        "t_end": result.times[-1],
+        "floor_events": result.floor_events,
+        "floor_energy": result.floor_energy,
+    }
+    return snapshots, result.times, result.wall_time, scheme.name, diagnostics
+
+
+def report_diagnostics(display_name: str, diagnostics: dict) -> None:
+    """Tell the user when a run diverged or was patched by the positivity floor."""
+    if diagnostics["status"] == "diverged":
+        st.error(
+            f"**{display_name}**: diverged at t = {diagnostics['t_end']:.4g} "
+            f"(negative density or pressure). This scheme fails on this case."
+        )
+    if diagnostics["floor_events"]:
+        st.warning(
+            f"**{display_name}**: the positivity floor corrected "
+            f"{diagnostics['floor_events']} cell states and injected an energy "
+            f"of {diagnostics['floor_energy']:.3g}. The scheme alone produced "
+            f"negative density or pressure: the curve shown is not the raw "
+            f"scheme and is not conservative."
+        )
 
 
 @st.cache_data(show_spinner=False)
@@ -558,11 +585,11 @@ with tab1:
             exact = cached_exact(test_case_name, n_cells, cfl, gamma)
 
             for sname, limiter, ti in selected:
-                snapshots, times, wall_time, display_name = cached_simulate(
+                snapshots, times, wall_time, display_name, diag = cached_simulate(
                     test_case_name, n_cells, cfl, gamma, sname, limiter, 1, ti,
                 )
-                if not snapshots:
-                    st.warning(f"**{display_name}**: divergent simulation (numerical instability).")
+                report_diagnostics(display_name, diag)
+                if diag["status"] == "diverged":
                     continue
                 U = np.array(snapshots[-1])
                 rho, u, p = conservative_to_primitive(U, gamma)
@@ -635,14 +662,13 @@ with tab4:
     n_snapshots = st.slider("Number of snapshots", 10, 200, 50, key="tab4_snaps")
 
     with st.spinner("Simulation..."):
-        snapshots, snap_times, wt, dn = cached_simulate(
+        snapshots, snap_times, wt, dn, diag = cached_simulate(
             test_case_name, n_cells, cfl, gamma, anim_scheme,
             anim_limiter, n_snapshots, anim_ti,
         )
 
-    if not snapshots:
-        st.error(f"**{dn}**: divergent simulation (numerical instability).")
-        st.stop()
+    # On divergence the animation still runs up to the last finite state.
+    report_diagnostics(dn, diag)
 
     config = _build_config(test_case_name, n_cells, cfl, gamma)
     t_final = config.time.t_final
