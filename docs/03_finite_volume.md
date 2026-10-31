@@ -69,7 +69,7 @@ $$\hat{\mathbf{F}}(\mathbf{U}, \mathbf{U}) = \mathbf{F}(\mathbf{U})$$
 
 2. **Conservativité** : le flux $\hat{\mathbf{F}}_{i+1/2}$ est unique à chaque interface. Ce qui sort de la cellule $i$ par sa frontière droite est exactement ce qui entre dans la cellule $i+1$ par sa frontière gauche. Le **théorème de Lax-Wendroff** garantit que si un schéma conservatif converge, il converge vers une solution faible des équations de conservation. Sans conservativité, un schéma peut converger vers une solution qui ne respecte pas les relations de saut (Rankine-Hugoniot).
 
-3. **Continuité Lipschitz** : $\hat{\mathbf{F}}$ est Lipschitz-continue par rapport à ses arguments, ce qui assure la stabilité du schéma.
+3. **Continuité Lipschitz** : $\hat{\mathbf{F}}$ est Lipschitz-continue par rapport à ses arguments. C'est une hypothèse technique de la consistance (elle intervient dans le théorème de Lax-Wendroff) ; elle n'assure pas la stabilité, qui dépend aussi du pas de temps (§6.1).
 
 ### Les différents solveurs de Riemann approchés
 
@@ -101,7 +101,7 @@ Le pas de temps est contraint par la condition **CFL** (Courant-Friedrichs-Lewy)
 
 $$\Delta t = \text{CFL} \cdot \frac{\Delta x}{\max_i (\lvert u_i \rvert + c_i)}$$
 
-où $u_i$ est la vitesse locale et $c_i$ la vitesse du son. La constante CFL doit être inférieure ou égale à 1 pour la stabilité (typiquement CFL $= 0.5$ à $0.9$). Le dénominateur est la vitesse maximale de propagation de l'information dans le domaine, calculée à chaque pas de temps.
+où $u_i$ est la vitesse locale et $c_i$ la vitesse du son. La constante CFL doit être inférieure ou égale à 1 pour la stabilité des schémas d'ordre 1 ; les reconstructions (MUSCL, ENO, WENO) sont plafonnées à 0,5 par le solveur (§6.1). Le dénominateur est la vitesse maximale de propagation de l'information dans le domaine, calculée à chaque pas de temps.
 
 ---
 
@@ -126,7 +126,7 @@ Par exemple :
 
 ### Pourquoi les variables primitives ?
 
-**Convention importante** : toutes les reconstructions sont effectuées sur les **variables primitives** $\mathbf{W} = (\rho, u, p)$, et non sur les variables conservatives $\mathbf{U} = (\rho, \rho u, E)$. Les variables primitives sont mieux conditionnées pour l'interpolation au voisinage des discontinuités : reconstruire l'énergie totale $E$ (qui mélange effets cinétiques et thermodynamiques) produit des oscillations parasites que la reconstruction sur $(\rho, u, p)$ évite.
+**Convention par défaut** : les reconstructions sont effectuées sur les **variables primitives** $\mathbf{W} = (\rho, u, p)$, et non sur les variables conservatives $\mathbf{U} = (\rho, \rho u, E)$. Les variables primitives sont mieux conditionnées pour l'interpolation au voisinage des discontinuités : reconstruire l'énergie totale $E$ (qui mélange effets cinétiques et thermodynamiques) produit des oscillations parasites que la reconstruction sur $(\rho, u, p)$ évite. Ce choix a un prix au-delà de l'ordre 2 : sur un écoulement non linéaire, il limite tout schéma à l'ordre 2. Les variables conservatives et caractéristiques sont aussi disponibles (§5.6).
 
 ### Lien entre reconstruction et ordre de convergence
 
@@ -222,11 +222,11 @@ Tous les schémas sont accessibles par un nom unique suivant la convention `"rec
 
 ### Schémas composables et non composables
 
-Les **flux composables** avec les reconstructions sont : Rusanov, HLL, HLLC, Roe, Godunov (5 flux). Combinés avec les 6 reconstructions (MUSCL, ENO2, WENO3, WENOZ3, WENO5, WENOZ5), ils produisent 30 schémas d'ordre élevé.
+Les **flux composables** avec les reconstructions sont : Rusanov, HLL, HLLC, Roe, Roe sans correction d'entropie, Godunov, AUSM+ et AUSM+-up (8 flux). Combinés avec les 6 reconstructions (MUSCL, ENO2, WENO3, WENOZ3, WENO5, WENOZ5), ils produisent 48 schémas d'ordre élevé.
 
-Les **schémas non composables** (Lax-Friedrichs, Lax-Wendroff, JST) ne fonctionnent qu'en ordre 1 (ou avec leur propre méthode interne). Ils sont enregistrés directement dans le registre.
+Les **schémas non composables** (Lax-Friedrichs, Lax-Wendroff, JST) ne s'associent pas à une reconstruction : Lax-Friedrichs est d'ordre 1, Lax-Wendroff et JST sont d'ordre 2 par construction. Ils sont enregistrés directement dans le registre.
 
-Au total, le registre propose **38 schémas** : 8 autonomes + 30 combinaisons.
+Au total, le registre propose **59 schémas** : 11 autonomes (les 8 flux composables et les 3 schémas centrés) + 48 combinaisons. Chaque reconstruction accepte en outre le choix des variables reconstruites (§5.6).
 
 ### Fonction `get_scheme`
 

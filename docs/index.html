@@ -123,11 +123,11 @@
             <div class="features">
                 <div class="card">
                     <h3>59 Numerical Schemes</h3>
-                    <p>11 standalone flux solvers combined with 6 high-order reconstructions (MUSCL, ENO2, WENO3, WENO5) and 5 slope limiters.</p>
+                    <p>11 standalone schemes; 8 composable fluxes combined with 6 high-order reconstructions (MUSCL, ENO2, WENO3 and WENO5 in JS and Z variants), 5 slope limiters, and a choice of reconstructed variables.</p>
                 </div>
                 <div class="card">
                     <h3>Exact Riemann Solver</h3>
-                    <p>Full exact solution for reference: Newton iteration on pressure with PVRS initial guess, vectorized NumPy sampling.</p>
+                    <p>Full exact solution for reference: Newton iteration on pressure with an adaptive initial guess, vacuum generation, vectorized NumPy sampling.</p>
                 </div>
                 <div class="card">
                     <h3>Convergence Studies</h3>
@@ -139,11 +139,11 @@
                 </div>
                 <div class="card">
                     <h3>Time Integration</h3>
-                    <p>RK1 through RK5 (Dormand-Prince). Adaptive time stepping with CFL condition. SSP-RK3 for TVD preservation.</p>
+                    <p>RK1 through RK5 (Dormand-Prince). Adaptive time stepping with CFL condition, capped at 0.5 for reconstructions. SSP-RK3 by default for high-order schemes.</p>
                 </div>
                 <div class="card">
-                    <h3>9 Test Cases</h3>
-                    <p>Classical Riemann problems (Sod, Lax, Shu-Osher, two shocks) and smooth solutions (entropy wave, acoustic wave) for order verification.</p>
+                    <h3>10 Test Cases</h3>
+                    <p>Riemann problems (Sod, Lax, double rarefaction, stationary contact, near vacuum, two shocks), shock/entropy-wave interaction (Shu-Osher) and smooth solutions (entropy, acoustic and nonlinear isentropic waves) for order verification.</p>
                 </div>
             </div>
         </section>
@@ -152,16 +152,16 @@
             <h2>Available Schemes</h2>
             <div class="schemes-grid">
                 <div class="scheme-group">
-                    <h3>Flux Solvers (order 1)</h3>
+                    <h3>Flux Solvers</h3>
                     <ul>
                         <li>Godunov (exact)</li>
                         <li>Roe (+/- entropy fix)</li>
                         <li>HLLC / HLL</li>
                         <li>Rusanov</li>
                         <li>AUSM+ / AUSM+-up</li>
-                        <li>Lax-Friedrichs</li>
-                        <li>Lax-Wendroff</li>
-                        <li>JST</li>
+                        <li>Lax-Friedrichs (centred)</li>
+                        <li>Lax-Wendroff (centred, order 2)</li>
+                        <li>JST (centred, order 2)</li>
                     </ul>
                 </div>
                 <div class="scheme-group">
@@ -197,7 +197,8 @@
                 <li><strong>Two shocks</strong> — strong shock collision (Toro test 4)</li>
                 <li><strong>Shu-Osher</strong> — Mach 3 shock in sinusoidal density</li>
                 <li><strong>Entropy wave</strong> — smooth advection for order verification</li>
-                <li><strong>Acoustic wave</strong> — isentropic perturbation for order verification</li>
+                <li><strong>Acoustic wave</strong> — small isentropic perturbation (effectively linear)</li>
+                <li><strong>Isentropic wave</strong> — nonlinear simple wave, order verification beyond 2</li>
             </ul>
         </section>
 

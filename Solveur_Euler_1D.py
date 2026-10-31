@@ -131,7 +131,7 @@ TEST_CASE_INFO = {
             "Left state: $(\\rho, u, p) = (1, -3.5, 0.4)$, "
             "right state: $(\\rho, u, p) = (1, 3.5, 0.4)$. "
             "Velocities are at 93% of the vacuum threshold: the central pressure "
-            "reaches $p^* \\sim 10^{-13}$, testing positivity preservation of the schemes."
+            "reaches $p^* \\approx 1.9 \\times 10^{-9}$, testing positivity preservation of the schemes."
         ),
         "structure": (
             "**Solution structure:** two symmetric rarefaction waves "

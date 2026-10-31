@@ -97,7 +97,7 @@ $$
 u_R - u_L \geq \frac{2}{\gamma - 1}(a_L + a_R)
 $$
 
-alors un vide se forme et le solveur de Riemann exact leve une erreur (voir Ch. 2, SS 2.6). Dans le cas present, cette condition n'est pas atteinte mais on s'en approche.
+alors un vide se forme : la solution exacte comporte deux détentes séparées par une zone où $\rho = p = 0$ (voir Ch. 2, §2.6). Avec $\gamma = 1{,}4$, cette condition n'est pas atteinte mais on s'en approche. Avec le curseur $\gamma$ de l'interface, le vide apparaît pour $\gamma \geq 1{,}864$ sur ce cas, et pour $\gamma \geq 1{,}433$ sur le quasi-vide (§8.5).
 
 ---
 
@@ -195,7 +195,7 @@ L'etat intermediaire atteint une pression tres elevee ($p^\ast \approx 1700$) et
 
 **Ce que ce test verifie :**
 - Capture correcte de l'interaction choc-choc.
-- Resolution de la discontinuite de contact entre les deux chocs (densite et vitesse y varient fortement).
+- Résolution de la discontinuité de contact entre les deux chocs : la densité y saute fortement, alors que la vitesse et la pression restent continues.
 - Robustesse sous conditions post-choc extremes (forte pression et densite).
 
 **Differences observees entre schemas :**
@@ -255,7 +255,7 @@ $$
 \rho(x, t) = 1 + \varepsilon \sin\bigl(2\pi(x - u_0 t)\bigr), \qquad u(x, t) = u_0, \qquad p(x, t) = p_0
 $$
 
-**Configuration :** Domaine $[0, 1]$, conditions aux limites periodiques, $t_{\text{final}} = 1.0$ (un aller-retour complet du domaine), $\gamma = 1.4$.
+**Configuration :** Domaine $[0, 1]$, conditions aux limites periodiques, $t_{\text{final}} = 1.0$ (une traversée complète du domaine à la vitesse $u_0 = 1$), $\gamma = 1.4$.
 
 **Lien avec l'analyse des ondes :** Ce cas test excite uniquement le mode entropique du systeme d'Euler (Ch. 7, SS 7.2) : seule la densite varie, tandis que la vitesse et la pression restent constantes. L'onde se propage a la vitesse $u_0$ (valeur propre $\lambda_2 = u$).
 
@@ -290,7 +290,7 @@ et de meme pour $u$ et $p$ avec les coefficients du vecteur propre.
 **Difference avec l'onde entropique :** Ici, les trois champs ($\rho$, $u$, $p$) varient simultanement de maniere couplee. Un schema qui converge bien sur la densite seule (onde entropique) pourrait avoir un comportement different sur les ondes acoustiques, ou les erreurs de dispersion affectent la phase de propagation.
 
 **Ce que ce test verifie :**
-- Propagation correcte des ondes veritablement non lineaires.
+- Propagation correcte des ondes acoustiques. Leurs champs caractéristiques sont « vraiment non linéaires » au sens de Lax, mais avec $\epsilon = 10^{-4}$ le problème est pratiquement linéaire : ce cas ne peut révéler ni une perte d'ordre due à la non-linéarité (voir l'onde isentrope, §8.10), ni des erreurs inférieures à $\epsilon^2 \approx 10^{-8}$, où la solution linéarisée cesse d'être exacte.
 - Convergence sur tous les champs simultanement (pas seulement la densite).
 - Erreurs de dispersion numerique (vitesse de phase).
 
@@ -347,7 +347,7 @@ La norme $L_1$ mesure l'erreur globale integree, la norme $L_2$ penalise davanta
 ### Protocole de convergence
 
 1. Choisir un cas test lisse avec solution exacte (onde entropique, acoustique ou isentrope). Seule l'onde isentrope est réellement non linéaire.
-2. Fixer le nombre de CFL a une valeur constante (typiquement $\text{CFL} = 0.9$). Cela garantit que $\Delta t \propto \Delta x$, et que l'erreur temporelle reste du meme ordre que l'erreur spatiale.
+2. Fixer le nombre de CFL a une valeur constante (typiquement $\text{CFL} = 0.9$, que le solveur ramène à 0,5 pour les reconstructions, §6.1). Cela garantit que $\Delta t \propto \Delta x$, et que l'erreur temporelle reste du meme ordre que l'erreur spatiale.
 3. Lancer la simulation pour plusieurs resolutions croissantes, par exemple $N = 50, 100, 200, 400, 800$.
 4. Pour chaque résolution, calculer l'erreur par rapport à la solution exacte. Le schéma fait évoluer des moyennes de maille : la condition initiale et la solution exacte sont donc moyennées sur chaque maille (quadrature de Gauss à 5 points). Comparer à des valeurs ponctuelles au centre introduirait une erreur en $O(\Delta x^2)$ qui masquerait tout ordre supérieur à 2.
 5. Estimer l'ordre $p$ par regression lineaire en echelle log-log :

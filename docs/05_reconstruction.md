@@ -28,7 +28,7 @@ Ce choix a un prix au-delà de l'ordre 2 : il est discuté au §5.6, qui présen
 
 Un schéma d'ordre élevé se compose de deux briques indépendantes (cf. §3.5) :
 
-$$\text{Schéma d'ordre élevé} = \underbrace{\text{Reconstruction spatiale}}_{\text{MUSCL, ENO, WENO}} + \underbrace{\text{Flux numérique}}_{\text{Rusanov, HLL, HLLC, Roe, Godunov}}$$
+$$\text{Schéma d'ordre élevé} = \underbrace{\text{Reconstruction spatiale}}_{\text{MUSCL, ENO, WENO}} + \underbrace{\text{Flux numérique}}_{\text{Rusanov, HLL, HLLC, Roe, Godunov, AUSM+, AUSM+-up}}$$
 
 La reconstruction fournit les états $\mathbf{W}_L$ et $\mathbf{W}_R$ à chaque interface ; le flux numérique les utilise pour calculer $\hat{\mathbf{F}}_{i+1/2}$. Toute combinaison reconstruction × flux composable est valide (cf. Chapitre 4, Introduction). Les schémas centrés (Lax-Friedrichs, Lax-Wendroff, JST) ne sont **pas** composables avec ces reconstructions.
 
@@ -415,7 +415,7 @@ En pratique, la variante Z est recommandée pour les solutions contenant des ext
 | **Coût relatif** | Faible | Faible | Modéré | Élevé |
 | **Intégrateur par défaut** | RK2 | RK2 | SSP-RK3 | SSP-RK3 |
 | **Paramètres utilisateur** | Choix du limiteur | Aucun | Variante JS/Z | Variante JS/Z |
-| **Composable avec** | Rusanov, HLL, HLLC, Roe, Godunov | idem | idem | idem |
+| **Composable avec** | Rusanov, HLL, HLLC, Roe (avec ou sans correction), Godunov, AUSM+, AUSM+-up | idem | idem | idem |
 
 **Recommandations pratiques** :
 

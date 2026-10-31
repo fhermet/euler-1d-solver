@@ -186,12 +186,12 @@ $$\begin{array}{c\vert cccc}
 
 ### Propriétés
 
-- **Pas SSP** : RK4 classique n'est pas une méthode SSP. Il n'existe pas de méthode RK explicite SSP d'ordre 4 avec seulement 4 étages [Gottlieb, Shu, Tadmor, 2001]. En pratique, pour les schémas spatiaux d'ordre 4 (JST), la dissipation artificielle adaptative stabilise la solution sans nécessiter la propriété SSP.
+- **Pas SSP** : RK4 classique n'est pas une méthode SSP. Il n'existe pas de méthode RK explicite SSP d'ordre 4 avec seulement 4 étages [Gottlieb, Shu, Tadmor, 2001]. En pratique, pour JST (d'ordre 2 en espace), la dissipation artificielle adaptative stabilise la solution sans nécessiter la propriété SSP.
 - **Large domaine de stabilité** : la région de stabilité de RK4 dans le plan complexe est sensiblement plus grande que celles de RK1-RK3, ce qui peut autoriser des CFL légèrement plus élevés dans certaines configurations.
 
 ### Utilisation
 
-RK4 est le choix par défaut pour le schéma **JST** (Jameson-Schmidt-Turkel), dont la dissipation artificielle adaptative requiert un intégrateur d'ordre suffisant.
+RK4 est le choix par défaut pour le schéma **JST** (Jameson-Schmidt-Turkel), qui est d'ordre 2 en espace. Ce n'est donc pas la règle « ordre spatial = ordre temporel » : on reprend l'article original de Jameson, Schmidt et Turkel (1981), qui intègre le schéma par une méthode de Runge-Kutta à quatre étages ; sa large région de stabilité sur l'axe imaginaire convient à un schéma centré peu dissipatif.
 
 ---
 
@@ -263,7 +263,7 @@ Ce principe a une limite. Sur une solution discontinue, l'ordre effectif retombe
 | 1 | Constante (Rusanov, HLL, HLLC, Roe, Godunov, Lax-Friedrichs) | RK1 (Euler explicite) | 1 |
 | 2 | MUSCL, ENO2 | RK2 (Heun) | 2 |
 | 3 | WENO3 (JS, Z) | RK3 (SSP-RK3) | 3 |
-| 4 | JST | RK4 (classique) | 4 |
+| 2 | JST (exception, voir §6.5) | RK4 (classique) | 4 |
 | 5 | WENO5 (JS, Z) | RK3 (SSP-RK3) | 3 |
 
 ### Logique de sélection dans le code
