@@ -7,7 +7,7 @@ This module provides the post-processing pipeline for simulation results:
 * Measuring discretisation errors with L1, L2, and Linf norms.
 * Running mesh-convergence studies and estimating convergence orders.
 
-See docs/08_test_cases.md, Section 8.6 for the mathematical background.
+See docs/08_test_cases.md, Section 8.11 for the mathematical background.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from euler1d.config import RiemannProblem, SimulationConfig, SmoothProblem
-from euler1d.physics import conservative_to_primitive, sound_speed
+from euler1d.physics import cell_average, conservative_to_primitive, sound_speed
 from euler1d.riemann import sample_riemann
 from euler1d.solver import SolverResult, run_simulation
 
@@ -87,7 +87,12 @@ def compute_exact_solution(config: SimulationConfig) -> pd.DataFrame:
     x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
 
     if isinstance(prob, SmoothProblem):
-        rho, u, p = prob.exact_fn(x, config.time.t_final, gas.gamma)
+        # Cell averages, like the numerical solution (see physics.cell_average).
+        t = config.time.t_final
+        rho, u, p = conservative_to_primitive(
+            cell_average(lambda s: prob.exact_fn(s, t, gas.gamma), x, dx, gas.gamma),
+            gas.gamma,
+        )
     else:
         rho, u, p = sample_riemann(
             x, config.time.t_final,
@@ -114,7 +119,7 @@ def compute_errors(
 ) -> dict[str, dict[str, float]]:
     """Compute L1, L2, and Linf error norms for rho, u, and p.
 
-    The discrete error norms are defined as (see docs/08_test_cases.md, Section 8.6):
+    The discrete error norms are defined as (see docs/08_test_cases.md, Section 8.11):
 
         L1   = sum(|f_i - f_exact_i|) * dx
         L2   = sqrt(sum((f_i - f_exact_i)**2) * dx)
@@ -194,7 +199,7 @@ def convergence_study(
     variables: tuple[str, ...] = ("rho", "u", "p"),
     time_integrator: str | None = None,
 ) -> pd.DataFrame:
-    """Run a mesh convergence study at constant CFL (Section 8.6).
+    """Run a mesh convergence study at constant CFL (Section 8.11).
 
     For each resolution in *n_cells_list*, this function:
         1. Builds a ``SimulationConfig`` via *make_config(n_cells)*.
@@ -233,7 +238,8 @@ def convergence_study(
         config = make_config(n)
         exact = compute_exact_solution(config)
         result = run_simulation(config, scheme, time_integrator=time_integrator)
-        if not result.snapshots:
+        # A diverged run has no solution at t_final: leave this resolution out.
+        if result.status != "ok":
             continue
         errs = compute_errors(result, exact)
         for var in variables:
@@ -250,7 +256,7 @@ def convergence_study(
 
 
 def estimate_order(dx_values: np.ndarray, error_values: np.ndarray) -> float:
-    """Estimate convergence order via least-squares fit in log-log space (Section 8.6).
+    """Estimate convergence order via least-squares fit in log-log space (Section 8.11).
 
     Fits the linear model ``log(err) = p * log(dx) + c`` using numpy's
     :func:`numpy.polyfit`.  The slope *p* is the estimated convergence order.

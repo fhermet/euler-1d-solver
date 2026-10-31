@@ -49,10 +49,6 @@ class Rusanov(NumericalScheme):
     def name(self) -> str:
         return "Rusanov"
 
-    @property
-    def scheme_type(self) -> str:
-        return "centré"
-
     def compute_riemann_flux(
         self, UL: np.ndarray, UR: np.ndarray, gas: GasProperties, dx: float, dt: float
     ) -> np.ndarray:

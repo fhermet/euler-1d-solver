@@ -23,6 +23,8 @@ References
 
 from __future__ import annotations
 
+from typing import Callable
+
 import numpy as np
 
 
@@ -208,3 +210,44 @@ def max_wave_speed(U: np.ndarray, gamma: float) -> float:
     rho, u, p = conservative_to_primitive(U, gamma)
     a = sound_speed(rho, p, gamma)
     return float(np.max(np.abs(u) + a))
+
+
+def cell_average(
+    prim_fn: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]],
+    x: np.ndarray,
+    dx: float,
+    gamma: float,
+    n_points: int = 5,
+) -> np.ndarray:
+    """Cell averages U(3, N) of a pointwise primitive field, by Gauss quadrature.
+
+    A finite volume scheme evolves cell averages.  Initialising, or comparing
+    against, point values at cell centres instead introduces an O(dx^2)
+    error, which hides the order of any scheme above 2.  The quadrature uses
+    *n_points* Gauss-Legendre points per cell (exact for polynomials of
+    degree 2*n_points - 1).
+
+    Parameters
+    ----------
+    prim_fn : callable
+        x -> (rho, u, p) evaluated pointwise.
+    x : ndarray, shape (N,)
+        Cell centres.
+    dx : float
+        Cell width.
+    gamma : float
+        Ratio of specific heats.
+    n_points : int, optional
+        Number of Gauss points per cell (default 5).
+
+    Returns
+    -------
+    U_bar : ndarray, shape (3, N)
+        Cell averages of the conservative variables.
+    """
+    nodes, weights = np.polynomial.legendre.leggauss(n_points)
+    U_bar = np.zeros((3, len(x)))
+    for xi, w in zip(nodes, weights):
+        rho, u, p = prim_fn(x + 0.5 * dx * xi)
+        U_bar += 0.5 * w * primitive_to_conservative(rho, u, p, gamma)
+    return U_bar

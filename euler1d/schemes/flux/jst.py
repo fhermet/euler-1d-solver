@@ -80,7 +80,7 @@ class JST(NumericalScheme):
 
     @property
     def scheme_type(self) -> str:
-        return "centré"
+        return "centered"
 
     @property
     def default_time_integrator(self) -> str:

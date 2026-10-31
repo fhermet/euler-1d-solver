@@ -13,7 +13,8 @@ Two weight variants are available:
 - **Z** (WENO-Z, Borges et al.): uses a global smoothness indicator tau to
   restore optimal order at critical points, with eps = dx^2.
 
-The reconstruction operates on primitive variables W = (rho, u, p).
+The reconstruction operates by default on primitive variables W = (rho, u, p)
+(see ``variables.py`` for the other choices).
 
 See docs/05_reconstruction.md, section 5.3 for full derivation and analysis.
 
@@ -30,9 +31,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from euler1d.config import GasProperties
-from euler1d.physics import conservative_to_primitive, primitive_to_conservative
 from euler1d.schemes.base import NumericalScheme
+from euler1d.schemes.reconstruction.base import ReconstructedScheme
+from euler1d.schemes.reconstruction.variables import reconstruct_faces
 
 
 def _weno_weights_js(
@@ -101,18 +102,36 @@ def _weno_weights_z(
 WENO_VARIANTS = ("JS", "Z")
 
 
+def weno3_kernel(
+    v: np.ndarray, dx: float, variant: str = "JS"
+) -> tuple[np.ndarray, np.ndarray]:
+    """WENO3 reconstruction on stencils v = (W_{j-1}, W_j, W_{j+1}, W_{j+2}).
+
+    Blends the two linear candidates S0 = {i-1, i} and S1 = {i, i+1} with
+    nonlinear weights built on the squared first differences.  Ideal weights
+    are (1/3, 2/3) for the left state of j+1/2 (from cell j) and (2/3, 1/3)
+    for the right state (from cell j+1).
+    """
+    if variant == "Z":
+        eps_z = dx**2
+
+        def weight_fn(b0, b1, d0, d1):
+            return _weno_weights_z(b0, b1, d0, d1, eps=eps_z)
+    else:
+        weight_fn = _weno_weights_js
+
+    D0, D1, D2 = v[1] - v[0], v[2] - v[1], v[3] - v[2]
+    w0_L, w1_L = weight_fn(D0**2, D1**2, 1.0 / 3.0, 2.0 / 3.0)
+    w0_R, w1_R = weight_fn(D1**2, D2**2, 2.0 / 3.0, 1.0 / 3.0)
+    W_L = v[1] + 0.5 * (w0_L * D0 + w1_L * D1)
+    W_R = v[2] - 0.5 * (w0_R * D1 + w1_R * D2)
+    return W_L, W_R
+
+
 def weno3_reconstruct(
     U: np.ndarray, gamma: float, variant: str = "JS", dx: float = 1.0
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Perform WENO3 reconstruction on primitive variables using 2 sub-stencils.
-
-    Blends two candidate stencils S0={i-1,i} and S1={i,i+1} with nonlinear
-    weights derived from smoothness indicators (squared first differences).
-    In smooth regions, the weights converge to the ideal values (1/3, 2/3 for
-    left; 2/3, 1/3 for right), achieving third-order accuracy. Near
-    discontinuities, the contaminated stencil is effectively excluded.
-
-    Density and pressure are clamped to 1e-10 for positivity.
+    """WENO3 reconstruction on primitive variables.
 
     Parameters
     ----------
@@ -127,51 +146,15 @@ def weno3_reconstruct(
 
     Returns
     -------
-    UL : ndarray, shape (3, N + 1)
-        Reconstructed left states at each interface.
-    UR : ndarray, shape (3, N + 1)
-        Reconstructed right states at each interface.
-
-    See Also
-    --------
-    WENO3Scheme : Scheme class that pairs this reconstruction with a Riemann solver.
-    weno5_reconstruct : Higher-order (5th) WENO reconstruction.
+    UL, UR : ndarray, shape (3, N + 1)
+        Left and right conservative states at each interface.
     """
-    rho, u, p = conservative_to_primitive(U, gamma)
-    W = np.array([rho, u, p])
-
-    D = np.diff(W, axis=1)
-    n_intf = W.shape[1] - 3
-
-    if variant == "Z":
-        eps_z = dx**2
-        def weight_fn(b0, b1, d0, d1):
-            return _weno_weights_z(b0, b1, d0, d1, eps=eps_z)
-    else:
-        weight_fn = _weno_weights_js
-
-    D0_L = D[:, 0:n_intf]
-    D1_L = D[:, 1:n_intf+1]
-    w0_L, w1_L = weight_fn(D0_L**2, D1_L**2, 1.0/3.0, 2.0/3.0)
-    W_L = W[:, 1:n_intf+1] + 0.5 * (w0_L * D0_L + w1_L * D1_L)
-
-    D0_R = D[:, 1:n_intf+1]
-    D1_R = D[:, 2:n_intf+2]
-    w0_R, w1_R = weight_fn(D0_R**2, D1_R**2, 2.0/3.0, 1.0/3.0)
-    W_R = W[:, 2:n_intf+2] - 0.5 * (w0_R * D0_R + w1_R * D1_R)
-
-    W_L[0] = np.maximum(W_L[0], 1e-10)
-    W_L[2] = np.maximum(W_L[2], 1e-10)
-    W_R[0] = np.maximum(W_R[0], 1e-10)
-    W_R[2] = np.maximum(W_R[2], 1e-10)
-
-    UL = primitive_to_conservative(W_L[0], W_L[1], W_L[2], gamma)
-    UR = primitive_to_conservative(W_R[0], W_R[1], W_R[2], gamma)
-
-    return UL, UR
+    return reconstruct_faces(
+        U, gamma, dx, lambda v, h: weno3_kernel(v, h, variant), 2, "primitive"
+    )
 
 
-class WENO3Scheme(NumericalScheme):
+class WENO3Scheme(ReconstructedScheme):
     """Third-order WENO3 scheme combining weighted reconstruction with a Riemann solver.
 
     Applies WENO3 reconstruction to compute interface states, then delegates
@@ -186,21 +169,28 @@ class WENO3Scheme(NumericalScheme):
         The underlying first-order Riemann flux solver.
     variant : str, default "JS"
         Weight variant: "JS" for Jiang-Shu, "Z" for WENO-Z.
+    variables : str, default "primitive"
+        Reconstructed variables: "primitive", "conservative" or
+        "characteristic".
 
     See Also
     --------
-    weno3_reconstruct : The reconstruction function used internally.
+    weno3_kernel : The 1D reconstruction formula.
     make_weno3_scheme : Factory function to create a WENO3Scheme by solver name.
     """
 
-    def __init__(self, riemann_solver: NumericalScheme, variant: str = "JS"):
-        self._riemann = riemann_solver
+    def __init__(
+        self,
+        riemann_solver: NumericalScheme,
+        variant: str = "JS",
+        variables: str = "primitive",
+    ):
+        super().__init__(riemann_solver, variables)
         self._variant = variant
 
     @property
-    def name(self) -> str:
-        tag = "WENO3" if self._variant == "JS" else "WENO3-Z"
-        return f"{tag}-{self._riemann.name}"
+    def label(self) -> str:
+        return "WENO3" if self._variant == "JS" else "WENO3-Z"
 
     @property
     def order(self) -> int:
@@ -210,19 +200,13 @@ class WENO3Scheme(NumericalScheme):
     def n_ghost(self) -> int:
         return 2
 
-    def compute_riemann_flux(
-        self, UL: np.ndarray, UR: np.ndarray, gas: GasProperties, dx: float, dt: float
-    ) -> np.ndarray:
-        return self._riemann.compute_riemann_flux(UL, UR, gas, dx, dt)
-
-    def compute_fluxes(
-        self, U: np.ndarray, gas: GasProperties, dx: float, dt: float
-    ) -> np.ndarray:
-        UL, UR = weno3_reconstruct(U, gas.gamma, variant=self._variant, dx=dx)
-        return self.compute_riemann_flux(UL, UR, gas, dx, dt)
+    def kernel(self, v: np.ndarray, dx: float) -> tuple[np.ndarray, np.ndarray]:
+        return weno3_kernel(v, dx, self._variant)
 
 
-def make_weno3_scheme(riemann_name: str, variant: str = "JS") -> WENO3Scheme:
+def make_weno3_scheme(
+    riemann_name: str, variant: str = "JS", variables: str = "primitive"
+) -> WENO3Scheme:
     """Factory to create a WENO3Scheme from a Riemann solver name.
 
     Parameters
@@ -231,6 +215,8 @@ def make_weno3_scheme(riemann_name: str, variant: str = "JS") -> WENO3Scheme:
         Name of the Riemann flux solver (e.g., "hllc", "roe").
     variant : str, default "JS"
         Weight variant: "JS" for Jiang-Shu, "Z" for WENO-Z.
+    variables : str, default "primitive"
+        Reconstructed variables.
 
     Returns
     -------
@@ -238,4 +224,4 @@ def make_weno3_scheme(riemann_name: str, variant: str = "JS") -> WENO3Scheme:
         Configured WENO3 scheme ready for use in the solver.
     """
     from euler1d.schemes.flux import get_flux_solver
-    return WENO3Scheme(get_flux_solver(riemann_name), variant=variant)
+    return WENO3Scheme(get_flux_solver(riemann_name), variant=variant, variables=variables)

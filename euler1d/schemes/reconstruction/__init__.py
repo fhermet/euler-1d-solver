@@ -6,10 +6,13 @@ combining a spatial reconstruction with a Riemann flux solver.
 
     high-order scheme = reconstruction (this package) + flux solver (schemes.flux)
 
-All reconstruction methods operate on **primitive variables** W = (rho, u, p)
-rather than conservative variables U = (rho, rho*u, E). This choice improves
-conditioning near discontinuities where conservative variables exhibit coupled
-jumps. See docs/05_reconstruction.md, Introduction.
+By default all reconstruction methods operate on **primitive variables**
+W = (rho, u, p) rather than conservative variables U = (rho, rho*u, E). This
+choice improves conditioning near discontinuities where conservative variables
+exhibit coupled jumps, but limits any reconstruction to order 2 on nonlinear
+smooth flows.  Conservative and characteristic variables are available through
+the ``variables`` argument (see ``variables.py`` and docs/05_reconstruction.md,
+section 5.6).
 
 Available reconstructions
 -------------------------

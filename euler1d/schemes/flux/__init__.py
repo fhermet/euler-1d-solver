@@ -1,6 +1,6 @@
 """Numerical flux solvers for the 1D Euler equations.
 
-This package provides eight flux schemes organised into two families:
+This package provides eleven flux schemes organised into three families:
 
 **Upwind (Riemann-based) schemes** -- These exploit the wave structure of the
 Riemann problem to propagate information in the physically correct direction.
@@ -17,6 +17,8 @@ Six solvers are available, listed in increasing order of wave resolution:
 forward and backward parts based on the local Mach number:
 
 * :class:`AUSMPlus` -- Advection Upstream Splitting Method (Liou, 1996).
+* :class:`AUSMPlusUp` -- AUSM+ with pressure and velocity diffusion for
+  all speeds (Liou, 2006).
 
 All composable schemes can be paired with higher-order reconstructions
 (MUSCL, ENO, WENO) via the composition principle described in
@@ -31,7 +33,7 @@ centred average of the physical fluxes plus an artificial dissipation term:
 
 These three are **not composable** with higher-order reconstructions.
 
-The helper function :func:`get_flux_solver` instantiates any of the five
+The helper function :func:`get_flux_solver` instantiates any of the eight
 composable solvers by name.  The three centred schemes are registered directly
 in the top-level scheme registry (``euler1d/schemes/__init__.py``).
 
@@ -68,11 +70,11 @@ _FLUX_SOLVER_CLASSES = {
 
 
 def get_flux_solver(name: str):
-    """Instantiate one of the five composable flux solvers by name.
+    """Instantiate one of the eight composable flux solvers by name.
 
     The composable solvers are those that can be paired with higher-order
     spatial reconstructions (MUSCL, ENO, WENO): Rusanov, HLL, HLLC, Roe,
-    and Godunov.  Centred schemes (Lax-Friedrichs, Lax-Wendroff, JST) are
+    Roe without entropy fix, Godunov, AUSM+ and AUSM+-up.  Centred schemes (Lax-Friedrichs, Lax-Wendroff, JST) are
     not included here; they are registered in the top-level scheme registry.
 
     Parameters

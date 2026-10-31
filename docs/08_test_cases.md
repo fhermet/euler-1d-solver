@@ -80,6 +80,10 @@ avec la discontinuite en $x_d = 0.5$, sur le domaine $[0, 1]$.
 
 **Configuration :** $t_{\text{final}} = 0.15$, conditions aux limites transmissives, $\gamma = 1.4$.
 
+**Pas de temps des schémas d'ordre élevé.** Les reconstructions (MUSCL, ENO, WENO) sont plafonnées à CFL 0,5 (§6.1). Sans ce plafond, à CFL 0,9, WENO3 et WENO5 produisent une pression négative dans un étage Runge-Kutta sur ce cas, quel que soit le flux.
+
+**Solution exacte :** $p^\ast = 0{,}00189$, $u^\ast = 0$, $\rho^\ast = 0{,}0219$ [Toro, 2009, tableau 4.2].
+
 **Scenario physique :** Les deux etats ont des vitesses opposees ($u_L = -2$, $u_R = +2$) qui eloignent le gaz du centre. Cela genere deux detentes symetriques se propageant vers les bords, laissant au centre une zone de pression et de densite tres faibles.
 
 **Ce que ce test verifie :**
@@ -143,20 +147,23 @@ $$
 \Delta u_{\text{vide}} = \frac{2}{\gamma - 1}(a_L + a_R) = 5 \times 1.497 = 7.483
 $$
 
-Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La pression de la zone etoile est extremement faible : $p^\ast \sim 10^{-13}$.
+Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La zone étoile est quasi vide : $p^\ast \approx 1{,}9 \times 10^{-9}$ et $\rho^\ast \approx 1{,}1 \times 10^{-6}$. Comme les deux ondes sont des détentes, l'estimation TRRS du chapitre 2 (§2.6) donne directement cette valeur.
 
 **Comparaison avec la double detente (SS 8.3) :** La double detente utilise $u = \pm 2$ ($\Delta u = 4$, soit 53% du seuil). Le quasi-vide est un cas bien plus severe.
 
 **Configuration :** Domaine $[0, 1]$, conditions aux limites transmissives, $t_{\text{final}} = 0.1$, $\gamma = 1.4$.
 
 **Ce que ce test verifie :**
-- **Preservation de la positivite** de la pression et de la densite. Le plancher de positivite du solveur est mis a rude epreuve.
+- **Preservation de la positivite** de la pression et de la densite. Par défaut, aucun plancher n'est appliqué : un schéma qui produit une densité ou une pression négative s'arrête et l'interface l'indique.
 - Robustesse des flux numeriques avec des densites/pressions quasi nulles.
 - Correctement du calcul des eventails de detente pres de la limite du vide.
 
-**Comportement observe :**
-- Certains schemas (Roe sans correction) peuvent generer des pressions negatives et diverger sans plancher de positivite.
-- Les schemas les plus dissipatifs (Rusanov) sont paradoxalement les plus robustes car ils maintiennent une pression plancher plus elevee.
+**Comportement observé (N = 200, sans plancher ; reconstructions à CFL 0,5) :**
+- Roe sans correction d'entropie diverge, quelle que soit la reconstruction.
+- Roe avec correction passe à l'ordre 1, mais WENO5-Z + Roe diverge : le schéma de Roe n'est pas positivement conservatif [Einfeldt et al., 1991].
+- Lax-Wendroff et JST (centrés, non limités) divergent.
+- HLL, HLLC et Rusanov passent avec toutes les reconstructions. Les schémas les plus dissipatifs sont les plus robustes.
+- WENO3 et WENO5 avec Godunov, AUSM+ ou AUSM+-up divergent.
 
 ---
 
@@ -287,7 +294,33 @@ et de meme pour $u$ et $p$ avec les coefficients du vecteur propre.
 
 ---
 
-## 8.10 Analyse de convergence
+## 8.10 Onde isentrope non linéaire (*isentropic simple wave*)
+
+Les deux cas précédents sont linéaires ou presque : l'onde entropique ne fait varier que $\rho$, l'onde acoustique a une amplitude de $10^{-4}$. Ils ne peuvent pas révéler une perte d'ordre due à la non-linéarité. Ce cas est une onde simple d'amplitude finie, dont la solution exacte reste régulière jusqu'à la formation du choc.
+
+**Conditions initiales** (domaine $[0, 1]$, périodique, $\gamma = 1{,}4$) :
+
+$$
+\rho_0(x) = 1 + \epsilon \sin(2\pi x), \qquad p_0 = \rho_0^\gamma, \qquad u_0 = \frac{2}{\gamma - 1}\,(a_0 - a_{\text{ref}}), \qquad a_{\text{ref}} = \sqrt{\gamma}
+$$
+
+avec $\epsilon = 0{,}2$ et $a_0 = \sqrt{\gamma p_0 / \rho_0}$.
+
+**Solution exacte.** L'invariant de Riemann $u - 2a/(\gamma-1)$ est uniforme : l'écoulement est une onde simple se propageant vers la droite. Le long de chaque caractéristique $\mathrm{d}x/\mathrm{d}t = u + a$, $u$ et $a$ restent constants. La solution en $(x, t)$ s'obtient en résolvant par Newton
+
+$$
+x = x_0 + (u_0 + a_0)(x_0)\, t
+$$
+
+pour le pied $x_0$ de la caractéristique, puis $\rho(x, t) = \rho_0(x_0)$.
+
+**Formation du choc.** Comme $u + a$ varie avec $x$, le profil se raidit et les caractéristiques se croisent à $t_s = -1/\min_x \frac{\mathrm{d}(u_0+a_0)}{\mathrm{d}x} \approx 0{,}55$. Le cas s'arrête à $t_{\text{final}} = 0{,}2$, où la solution est encore régulière.
+
+**Ce que ce test vérifie :** l'ordre de convergence effectif sur un écoulement non linéaire. C'est sur ce cas que WENO5 en variables primitives tombe à l'ordre 2, alors qu'il atteint l'ordre 5 en variables conservatives ou caractéristiques avec RK5 (§5.6).
+
+---
+
+## 8.11 Analyse de convergence
 
 L'etude de convergence en maillage est l'outil principal pour verifier qu'un schema atteint bien son ordre de precision theorique.
 
@@ -311,10 +344,10 @@ La norme $L_1$ mesure l'erreur globale integree, la norme $L_2$ penalise davanta
 
 ### Protocole de convergence
 
-1. Choisir un cas test lisse (onde entropique ou acoustique) avec solution exacte analytique.
+1. Choisir un cas test lisse avec solution exacte (onde entropique, acoustique ou isentrope). Seule l'onde isentrope est réellement non linéaire.
 2. Fixer le nombre de CFL a une valeur constante (typiquement $\text{CFL} = 0.9$). Cela garantit que $\Delta t \propto \Delta x$, et que l'erreur temporelle reste du meme ordre que l'erreur spatiale.
 3. Lancer la simulation pour plusieurs resolutions croissantes, par exemple $N = 50, 100, 200, 400, 800$.
-4. Pour chaque resolution, calculer l'erreur par rapport a la solution exacte.
+4. Pour chaque résolution, calculer l'erreur par rapport à la solution exacte. Le schéma fait évoluer des moyennes de maille : la condition initiale et la solution exacte sont donc moyennées sur chaque maille (quadrature de Gauss à 5 points). Comparer à des valeurs ponctuelles au centre introduirait une erreur en $O(\Delta x^2)$ qui masquerait tout ordre supérieur à 2.
 5. Estimer l'ordre $p$ par regression lineaire en echelle log-log :
 
 $$
@@ -330,13 +363,15 @@ Sur les cas test **lisses**, les ordres de convergence attendus sont :
 | Godunov, Rusanov, HLL, HLLC, Roe | 1 |
 | MUSCL, ENO2, Lax-Wendroff | 2 |
 | WENO3 | 3 |
-| WENO5 | 5 |
+| WENO5 | 5 (variables conservatives ou caractéristiques, intégrateur RK5) |
+
+Deux précautions, détaillées aux §5.6 et §6.7 : en variables primitives, tout schéma d'ordre supérieur à 2 retombe à l'ordre 2 sur un écoulement non linéaire ; et l'intégrateur par défaut SSP-RK3 limite l'ordre observé à 3 lorsque $\Delta t \propto \Delta x$.
 
 Sur les problemes de **Riemann** (solutions discontinues), l'ordre de convergence global chute a environ 1, quel que soit l'ordre du schema. Cela est du a la presence de discontinuites qui limitent la regularite de la solution. L'interet des schemas d'ordre eleve sur les problemes discontinus reside dans la resolution plus nette des structures (moins de dissipation numerique) plutot que dans un taux de convergence plus eleve.
 
 ---
 
-## 8.11 Implementation
+## 8.12 Implementation
 
 ### `euler1d/test_cases.py`
 
@@ -345,17 +380,22 @@ Ce module contient des **fonctions factory** qui retournent chacune un objet `Si
 - `sod_shock_tube(n_cells)` -- SS 8.1
 - `lax_test(n_cells)` -- SS 8.2
 - `double_rarefaction(n_cells)` -- SS 8.3
-- `entropy_wave(n_cells, epsilon)` -- SS 8.4
-- `acoustic_wave(n_cells, epsilon)` -- SS 8.5
+- `stationary_contact(n_cells)` -- SS 8.4
+- `near_vacuum(n_cells)` -- SS 8.5
+- `two_shocks(n_cells)` -- SS 8.6
+- `shu_osher(n_cells)` -- SS 8.7
+- `entropy_wave(n_cells, epsilon)` -- SS 8.8
+- `acoustic_wave(n_cells, epsilon)` -- SS 8.9
+- `isentropic_wave(n_cells, epsilon)` -- SS 8.10
 
-Les cas lisses (`SmoothProblem`) fournissent une fonction `exact_fn(x, t, gamma)` qui retourne la solution analytique, utilisee pour le calcul des erreurs et des ordres de convergence.
+Les cas lisses (`SmoothProblem`) fournissent une fonction `exact_fn(x, t, gamma)` qui retourne la solution analytique ponctuelle ; elle est moyennée sur chaque maille avant le calcul des erreurs et des ordres de convergence.
 
 ### `euler1d/results.py`
 
 Ce module fournit les outils de post-traitement :
 
 - `compute_exact_solution(config)` : calcule la solution exacte sur le maillage, soit par le solveur de Riemann exact (problemes discontinus), soit par la solution analytique (problemes lisses).
-- `compute_errors(result, exact)` : calcule les normes $L_1$, $L_2$, $L_\infty$ pour $\rho$, $u$ et $p$ (SS 8.6).
+- `compute_errors(result, exact)` : calcule les normes $L_1$, $L_2$, $L_\infty$ pour $\rho$, $u$ et $p$ (SS 8.11).
 - `convergence_study(make_config, scheme, n_cells_list)` : lance une etude de convergence complete a CFL constant et retourne un `DataFrame` avec les erreurs pour chaque resolution.
 - `estimate_order(dx_values, error_values)` : estime l'ordre de convergence par regression log-log.
 
@@ -365,3 +405,4 @@ Ce module fournit les outils de post-traitement :
 
 - **[Sod, 1978]** G.A. Sod, *A survey of several finite difference methods for systems of nonlinear hyperbolic conservation laws*, Journal of Computational Physics, 27(1), pp. 1-31, 1978.
 - **[Toro, 2009]** E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd edition, Springer, 2009. Ch. 6 (cas test numeriques), Ch. 17 (methodes d'ordre eleve).
+- **[Einfeldt et al., 1991]** B. Einfeldt, C.-D. Munz, P.L. Roe, B. Sjögreen, *On Godunov-type methods near low densities*, Journal of Computational Physics, 92(2), pp. 273-295, 1991.

@@ -12,7 +12,9 @@ dissipative stable scheme.  Discontinuities are heavily smeared.
 
 The scheme is not composable with higher-order reconstructions because it is
 not formulated as a Riemann solver.  Its dissipation also depends on the time
-step, coupling the spatial and temporal discretisations.
+step, coupling the spatial and temporal discretisations.  The solver therefore
+passes the nominal CFL step, not the step shortened to land on t_final:
+otherwise the last step, however short, would apply a full averaging.
 
 References:
     [Lax, 1954] P.D. Lax, Comm. Pure Appl. Math., 7, pp. 159-193.
@@ -45,7 +47,7 @@ class LaxFriedrichs(NumericalScheme):
 
     @property
     def scheme_type(self) -> str:
-        return "centré"
+        return "centered"
 
     def compute_riemann_flux(
         self, UL: np.ndarray, UR: np.ndarray, gas: GasProperties, dx: float, dt: float

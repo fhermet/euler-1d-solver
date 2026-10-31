@@ -18,17 +18,19 @@ Naming convention (see docs/03_finite_volume.md, §3.7):
 * MUSCL schemes accept an optional ``limiter`` keyword argument (default
   ``"van-leer"``); other reconstructions have no extra parameters.
 
-The seven composable flux solvers (Rusanov, HLL, HLLC, Roe, Roe-NC, Godunov,
-AUSM+) can be paired with any of the six reconstructions (MUSCL, ENO2, WENO3,
-WENOZ3, WENO5, WENOZ5), yielding 42 high-order combinations.  Together with
-the 10 standalone schemes, the registry offers 52 schemes in total.
+The eight composable flux solvers (Rusanov, HLL, HLLC, Roe, Roe-NC, Godunov,
+AUSM+, AUSM+-up) can be paired with any of the six reconstructions (MUSCL,
+ENO2, WENO3, WENOZ3, WENO5, WENOZ5), yielding 48 high-order combinations.
+Together with the 11 standalone schemes, the registry offers 59 schemes in
+total.  Every reconstruction also accepts ``variables="primitive"`` (default),
+``"conservative"`` or ``"characteristic"``.
 
 Usage::
 
     from euler1d.schemes import get_scheme, available_schemes
 
     scheme = get_scheme("muscl-hllc", limiter="minmod")
-    all_names = available_schemes()          # list of all 38 names
+    all_names = available_schemes()          # list of all 59 names
     order2 = available_schemes(order=2)      # only order-2 schemes
 
 See also: docs/03_finite_volume.md, §3.7 (scheme registry).
@@ -130,7 +132,9 @@ _WENO5_ENTRIES: dict[str, tuple[str, str]] = {
 def get_scheme(name: str, **kwargs) -> NumericalScheme:
     """Instantiate a scheme by name.
 
-    For MUSCL schemes, pass limiter="minmod" etc. via kwargs.
+    For MUSCL schemes, pass limiter="minmod" etc. via kwargs.  Every
+    reconstruction accepts variables="primitive" (default), "conservative"
+    or "characteristic".
     """
     key = name.lower()
     if key in _MUSCL_ENTRIES:
@@ -138,13 +142,13 @@ def get_scheme(name: str, **kwargs) -> NumericalScheme:
         return make_muscl_scheme(riemann, **kwargs)
     if key in _ENO_ENTRIES:
         riemann, eno_order = _ENO_ENTRIES[key]
-        return make_eno_scheme(riemann, eno_order)
+        return make_eno_scheme(riemann, eno_order, **kwargs)
     if key in _WENO3_ENTRIES:
         riemann, variant = _WENO3_ENTRIES[key]
-        return make_weno3_scheme(riemann, variant=variant)
+        return make_weno3_scheme(riemann, variant=variant, **kwargs)
     if key in _WENO5_ENTRIES:
         riemann, variant = _WENO5_ENTRIES[key]
-        return make_weno5_scheme(riemann, variant=variant)
+        return make_weno5_scheme(riemann, variant=variant, **kwargs)
     if key not in SCHEME_REGISTRY:
         raise ValueError(
             f"Unknown scheme {name!r}. Available: {available_schemes()}"
@@ -169,13 +173,3 @@ def available_schemes(order: int | None = None) -> list[str]:
         if s.order == order:
             result.append(name)
     return result
-
-
-def scheme_label(key: str) -> str:
-    """Return a rich display label for a scheme registry key."""
-    s = get_scheme(key)
-    if key.startswith("muscl"):
-        base_name = s.name.split(" (")[0]
-    else:
-        base_name = s.name
-    return f"{base_name}  ({s.scheme_type}, ordre {s.order})"

@@ -55,7 +55,7 @@ class LaxWendroff(NumericalScheme):
 
     @property
     def scheme_type(self) -> str:
-        return "centré"
+        return "centered"
 
     @property
     def time_integral_included(self) -> bool:

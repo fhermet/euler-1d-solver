@@ -16,8 +16,8 @@ the exact Godunov solver or the entropy fix needed by Roe.  It is the
 recommended flux for combination with higher-order reconstructions (MUSCL-HLLC,
 WENO3-HLLC, WENO5-HLLC).
 
-The current implementation uses a Python loop over interfaces due to the
-four-case conditional structure.
+The four-case selection is vectorised with boolean masks: all star states
+are computed for every interface, then the relevant one is picked.
 
 References:
     [Toro, 2009] E.F. Toro, Riemann Solvers and Numerical Methods for Fluid
@@ -65,8 +65,8 @@ class HLLC(NumericalScheme):
         conditions.  A four-case selection (left, star-left, star-right,
         right) determines the flux at each interface.
 
-        Interfaces are processed in a Python loop due to the conditional
-        branching on four regions.
+        All four candidate fluxes are evaluated on every interface and the
+        right one is selected by mask (no Python loop).
 
         See also: docs/04_flux_schemes.md, Section 4.4.
         """
@@ -88,35 +88,25 @@ class HLLC(NumericalScheme):
             / (rhoL * (SL - uL) - rhoR * (SR - uR))
         )
 
-        n_intf = FL.shape[1]
-        F = np.empty((3, n_intf))
+        # Star fluxes F*_K = F_K + S_K (U*_K - U_K), K = L, R.  Where a branch
+        # is not selected its value may be meaningless (division by zero when
+        # S_K = S*), hence the errstate; np.where discards it.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            F_starL = _star_flux(UL, FL, rhoL, uL, pL, SL, S_star)
+            F_starR = _star_flux(UR, FR, rhoR, uR, pR, SR, S_star)
 
-        for k in range(n_intf):
-            if SL[k] >= 0.0:
-                F[:, k] = FL[:, k]
-            elif SR[k] <= 0.0:
-                F[:, k] = FR[:, k]
-            elif S_star[k] >= 0.0:
-                # F*_L
-                coeff = rhoL[k] * (SL[k] - uL[k]) / (SL[k] - S_star[k])
-                U_starL = coeff * np.array([
-                    1.0,
-                    S_star[k],
-                    UL[2, k] / rhoL[k]
-                    + (S_star[k] - uL[k])
-                    * (S_star[k] + pL[k] / (rhoL[k] * (SL[k] - uL[k]))),
-                ])
-                F[:, k] = FL[:, k] + SL[k] * (U_starL - UL[:, k])
-            else:
-                # F*_R
-                coeff = rhoR[k] * (SR[k] - uR[k]) / (SR[k] - S_star[k])
-                U_starR = coeff * np.array([
-                    1.0,
-                    S_star[k],
-                    UR[2, k] / rhoR[k]
-                    + (S_star[k] - uR[k])
-                    * (S_star[k] + pR[k] / (rhoR[k] * (SR[k] - uR[k]))),
-                ])
-                F[:, k] = FR[:, k] + SR[k] * (U_starR - UR[:, k])
+        return np.where(
+            SL >= 0.0, FL,
+            np.where(SR <= 0.0, FR, np.where(S_star >= 0.0, F_starL, F_starR)),
+        )
 
-        return F
+
+def _star_flux(U, F, rho, u, p, S, S_star):
+    """HLLC star-region flux on one side (Toro 2009, eqs. 10.38-10.39)."""
+    coeff = rho * (S - u) / (S - S_star)
+    U_star = coeff * np.array([
+        np.ones_like(S_star),
+        S_star,
+        U[2] / rho + (S_star - u) * (S_star + p / (rho * (S - u))),
+    ])
+    return F + S * (U_star - U)

@@ -39,6 +39,7 @@ from euler1d.test_cases import (
     acoustic_wave,
     double_rarefaction,
     entropy_wave,
+    isentropic_wave,
     lax_test,
     near_vacuum,
     shu_osher,
@@ -61,9 +62,10 @@ TEST_CASES = {
     "Shu-Osher": shu_osher,
     "Entropy wave": entropy_wave,
     "Acoustic wave": acoustic_wave,
+    "Isentropic wave (nonlinear)": isentropic_wave,
 }
 
-SMOOTH_CASES = {"Entropy wave", "Acoustic wave"}
+SMOOTH_CASES = {"Entropy wave", "Acoustic wave", "Isentropic wave (nonlinear)"}
 
 
 
@@ -178,11 +180,29 @@ TEST_CASE_INFO = {
         "description": (
             "Small isentropic perturbation ($\\epsilon = 10^{-4}$) propagating "
             "at the speed of sound. Smooth linearized solution, valid for small amplitudes. "
-            "Tests convergence on genuinely nonlinear fields ($\\rho$, $u$, $p$ all vary)."
+            "All three fields vary, but with such a small amplitude the problem is "
+            "effectively linear: it cannot reveal order losses due to nonlinearity "
+            "(see the isentropic wave)."
         ),
         "structure": (
             "**Solution structure:** acoustic wave propagating to the right "
             "at speed $u_0 + c_0$. All fields exhibit a sinusoidal perturbation."
+        ),
+    },
+    "Isentropic wave (nonlinear)": {
+        "description": (
+            "Right-going simple wave of finite amplitude ($\\epsilon = 0.2$): "
+            "$\\rho$, $u$ and $p$ all vary and the profile steepens. A shock would "
+            "form at $t \\approx 0.55$; at $t = 0.2$ the solution is still smooth. "
+            "Exact solution from the characteristics. This is the case that shows "
+            "whether a high-order scheme keeps its order: WENO5 on primitive "
+            "variables drops to order 2, on conservative or characteristic "
+            "variables it reaches 5 (with RK5; SSP-RK3 limits it to 3)."
+        ),
+        "structure": (
+            "**Solution structure:** smooth wave travelling to the right, "
+            "steepening on its front; the left-going Riemann invariant "
+            "$u - 2a/(\\gamma - 1)$ stays uniform."
         ),
     },
 }
@@ -305,6 +325,19 @@ def _compute_exact_at_time(
 # ---------------------------------------------------------------------------
 
 
+_RECONSTRUCTION_PREFIXES = ("muscl", "eno2", "weno3", "wenoz3", "weno5", "wenoz5")
+
+
+def _scheme_kwargs(scheme_name: str, limiter: str | None, variables: str) -> dict:
+    """Keyword arguments of get_scheme for a registry key."""
+    kwargs = {}
+    if limiter and scheme_name.startswith("muscl"):
+        kwargs["limiter"] = limiter
+    if scheme_name.split("-")[0] in _RECONSTRUCTION_PREFIXES:
+        kwargs["variables"] = variables
+    return kwargs
+
+
 @st.cache_data(show_spinner=False)
 def cached_simulate(
     test_case_name: str,
@@ -315,15 +348,54 @@ def cached_simulate(
     limiter: str | None,
     n_snapshots: int,
     time_integrator: str = "Auto",
-) -> tuple[list, list, float, str]:
-    """Run a simulation and return (snapshots_as_lists, times, wall_time, display_name)."""
+    positivity_floor: bool = False,
+    variables: str = "primitive",
+) -> tuple[list, list, float, str, dict]:
+    """Run a simulation.
+
+    Returns (snapshots_as_lists, times, wall_time, display_name, diagnostics),
+    where diagnostics holds the run status and the positivity-floor counters.
+    """
     config = _build_config(test_case_name, n_cells, cfl, gamma)
-    kwargs = {"limiter": limiter} if limiter and scheme_name.startswith("muscl") else {}
-    scheme = get_scheme(scheme_name, **kwargs)
+    scheme = get_scheme(scheme_name, **_scheme_kwargs(scheme_name, limiter, variables))
     rk = None if time_integrator == "Auto" else time_integrator
-    result = run_simulation(config, scheme, n_snapshots=n_snapshots, time_integrator=rk)
+    result = run_simulation(
+        config, scheme, n_snapshots=n_snapshots, time_integrator=rk,
+        positivity_floor=positivity_floor,
+    )
     snapshots = [s.tolist() for s in result.snapshots]
-    return snapshots, result.times, result.wall_time, scheme.name
+    diagnostics = {
+        "status": result.status,
+        "t_end": result.times[-1],
+        "floor_events": result.floor_events,
+        "floor_energy": result.floor_energy,
+        "cfl": result.cfl,
+        "cfl_requested": config.time.cfl,
+    }
+    return snapshots, result.times, result.wall_time, scheme.name, diagnostics
+
+
+def report_diagnostics(display_name: str, diagnostics: dict) -> None:
+    """Tell the user when a run diverged, was patched, or ran at a reduced CFL."""
+    if diagnostics["cfl"] < diagnostics["cfl_requested"]:
+        st.caption(
+            f"**{display_name}**: CFL {diagnostics['cfl']:g} instead of "
+            f"{diagnostics['cfl_requested']:g}. A limited reconstruction is only "
+            f"guaranteed stable (TVD) up to CFL 0.5."
+        )
+    if diagnostics["status"] == "diverged":
+        st.error(
+            f"**{display_name}**: diverged at t = {diagnostics['t_end']:.4g} "
+            f"(negative density or pressure). This scheme fails on this case."
+        )
+    if diagnostics["floor_events"]:
+        st.warning(
+            f"**{display_name}**: the positivity floor corrected "
+            f"{diagnostics['floor_events']} cell states and injected an energy "
+            f"of {diagnostics['floor_energy']:.3g}. The scheme alone produced "
+            f"negative density or pressure: the curve shown is not the raw "
+            f"scheme and is not conservative."
+        )
 
 
 @st.cache_data(show_spinner=False)
@@ -344,6 +416,7 @@ def cached_convergence(
     limiter: str | None,
     n_cells_tuple: tuple[int, ...],
     time_integrator: str = "Auto",
+    variables: str = "primitive",
 ) -> pd.DataFrame:
     """Run convergence study for one scheme."""
     make_config_fn = TEST_CASES[test_case_name]
@@ -366,8 +439,7 @@ def cached_convergence(
                 problem=base.problem, bc_type=base.bc_type,
             )
 
-    kwargs = {"limiter": limiter} if limiter and scheme_name.startswith("muscl") else {}
-    scheme = get_scheme(scheme_name, **kwargs)
+    scheme = get_scheme(scheme_name, **_scheme_kwargs(scheme_name, limiter, variables))
     rk = None if time_integrator == "Auto" else time_integrator
     return convergence_study(make_config, scheme, list(n_cells_tuple), time_integrator=rk)
 
@@ -518,12 +590,39 @@ with st.sidebar:
 
     with st.expander("Advanced parameters"):
         n_cells = st.slider("Number of cells", 50, 2000, 200, step=10)
-        cfl = st.slider("CFL", 0.1, 1.0, 0.9, step=0.05)
+        # Default from the test case; one key per case so the slider resets
+        # when the case changes.
+        cfl = st.slider(
+            "CFL", 0.1, 1.0, TEST_CASES[test_case_name]().time.cfl, step=0.05,
+            key=f"cfl_{test_case_name}",
+        )
         if is_smooth:
             gamma = 1.4
             st.info("Gamma fixed at 1.4 for smooth cases")
         else:
             gamma = st.slider("Gamma", 1.1, 2.0, 1.4, step=0.05)
+        recon_variables = st.selectbox(
+            "Reconstructed variables",
+            ["primitive", "conservative", "characteristic"],
+            help=(
+                "Variables on which MUSCL, ENO and WENO reconstruct the interface "
+                "states. Primitive (rho, u, p): robust, but limits any scheme to "
+                "order 2 on nonlinear smooth flows. Conservative: keeps the "
+                "formal order. Characteristic (Roe eigenvectors): keeps the "
+                "order and decouples the waves; standard for WENO on shocks. "
+                "Try WENO5 on the isentropic wave."
+            ),
+        )
+        positivity_floor = st.checkbox(
+            "Positivity floor",
+            value=False,
+            help=(
+                "Clip negative density or pressure after each time step so "
+                "that fragile schemes keep running. The correction is not "
+                "conservative and is reported for each scheme. Off: each "
+                "scheme shows its own behaviour, failure included."
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -558,11 +657,12 @@ with tab1:
             exact = cached_exact(test_case_name, n_cells, cfl, gamma)
 
             for sname, limiter, ti in selected:
-                snapshots, times, wall_time, display_name = cached_simulate(
+                snapshots, times, wall_time, display_name, diag = cached_simulate(
                     test_case_name, n_cells, cfl, gamma, sname, limiter, 1, ti,
+                    positivity_floor, recon_variables,
                 )
-                if not snapshots:
-                    st.warning(f"**{display_name}**: divergent simulation (numerical instability).")
+                report_diagnostics(display_name, diag)
+                if diag["status"] == "diverged":
                     continue
                 U = np.array(snapshots[-1])
                 rho, u, p = conservative_to_primitive(U, gamma)
@@ -599,10 +699,21 @@ with tab1:
                 conv_dfs = []
                 order_rows = []
                 for sname, limiter, ti in selected:
-                    df = cached_convergence(test_case_name, cfl, gamma, sname, limiter, n_cells_list, ti)
+                    df = cached_convergence(
+                        test_case_name, cfl, gamma, sname, limiter, n_cells_list, ti,
+                        recon_variables,
+                    )
                     if df.empty:
+                        st.warning(f"**{sname}**: diverged at every resolution.")
                         continue
                     display_name = df["scheme"].iloc[0] if len(df) > 0 else sname
+                    missing = sorted(set(n_cells_list) - set(df["n_cells"]))
+                    if missing:
+                        st.warning(
+                            f"**{display_name}**: diverged for N = "
+                            f"{', '.join(map(str, missing))}; these resolutions "
+                            f"are left out of the order estimate."
+                        )
                     conv_dfs.append((display_name, df))
 
                     var_data = df[df["variable"] == conv_var]
@@ -635,14 +746,13 @@ with tab4:
     n_snapshots = st.slider("Number of snapshots", 10, 200, 50, key="tab4_snaps")
 
     with st.spinner("Simulation..."):
-        snapshots, snap_times, wt, dn = cached_simulate(
+        snapshots, snap_times, wt, dn, diag = cached_simulate(
             test_case_name, n_cells, cfl, gamma, anim_scheme,
-            anim_limiter, n_snapshots, anim_ti,
+            anim_limiter, n_snapshots, anim_ti, positivity_floor, recon_variables,
         )
 
-    if not snapshots:
-        st.error(f"**{dn}**: divergent simulation (numerical instability).")
-        st.stop()
+    # On divergence the animation still runs up to the last finite state.
+    report_diagnostics(dn, diag)
 
     config = _build_config(test_case_name, n_cells, cfl, gamma)
     t_final = config.time.t_final

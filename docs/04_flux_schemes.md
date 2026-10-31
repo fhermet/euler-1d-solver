@@ -76,7 +76,8 @@ La détermination de $(\rho^\ast, u^\ast, p^\ast)$ passe par :
 ### Inconvénients
 
 - **Coût élevé** : chaque interface nécessite une itération de Newton (typiquement 3 à 6 itérations) pour trouver $p^\ast$, plus l'échantillonnage de la solution. Cela représente un coût bien supérieur aux solveurs approchés.
-- **Boucle Python** : dans l'implémentation, le solveur exact est appelé interface par interface dans une boucle Python (car `sample_at_interface` ne se vectorise pas trivialement), ce qui le rend significativement plus lent que les schémas vectorisés (Rusanov, HLL).
+- **Coût** : l'itération de Newton est vectorisée sur toutes les interfaces à la fois (`sample_interfaces`), mais reste plus chère qu'un flux approché : environ 5 fois HLLC sur le tube de Sod.
+- **Vide** : si les états d'interface engendrent du vide ($u_R - u_L \geq \frac{2}{\gamma-1}(a_L + a_R)$, §2.6), le flux utilise la solution exacte avec une zone de vide entre deux détentes [Toro, 2009, §4.6], où $\rho = u = p = 0$. Une reconstruction d'ordre élevé peut créer cette situation près du vide, même si les données initiales ne la remplissent pas.
 - **Reste d'ordre 1** : malgré l'exactitude du flux, la reconstruction constante par morceaux limite la précision globale à l'ordre 1.
 
 ### Comparaison
@@ -305,7 +306,7 @@ $$\hat{\mathbf{F}}_{i+1/2} = \begin{cases} \mathbf{F}_L & \text{si } S_L \geq 0 
 
 ### Inconvénients
 
-- **Boucle Python** : dans l'implémentation actuelle, le flux est calculé interface par interface dans une boucle Python (à cause des quatre cas conditionnels). Cela le rend plus lent que HLL (vectorisé) pour un grand nombre de cellules, bien que la qualité du flux soit supérieure.
+- **Vectorisé** : les quatre flux candidats ($\mathbf{F}_L$, $\mathbf{F}^\ast_L$, $\mathbf{F}^\ast_R$, $\mathbf{F}_R$) sont calculés sur toutes les interfaces, puis sélectionnés par masque.
 - **Approximation des vitesses d'onde** : la qualité du résultat dépend de l'estimation de $S_L$ et $S_R$. Les estimations de Davis sont simples mais peuvent être sous-optimales dans certains cas.
 
 ### Comparaison
@@ -660,9 +661,11 @@ avec :
 
 ### Nombre de Mach d'interface
 
-La vitesse du son à l'interface est prise comme la moyenne arithmétique :
+La vitesse du son à l'interface est celle de Liou [Liou, 1996, éq. 26], construite à partir de la vitesse du son critique $a^{\ast 2} = \frac{2(\gamma-1)}{\gamma+1} H$ :
 
-$$a_{1/2} = \frac{a_L + a_R}{2}$$
+$$a_{1/2} = \min(\tilde{a}_L, \tilde{a}_R), \qquad \tilde{a}_L = \frac{a^{\ast 2}_L}{\max(a^\ast_L, u_L)}, \qquad \tilde{a}_R = \frac{a^{\ast 2}_R}{\max(a^\ast_R, -u_R)}$$
+
+Liou introduit ce choix, plutôt qu'une simple moyenne $(a_L + a_R)/2$, pour améliorer la capture des chocs stationnaires.
 
 Les nombres de Mach gauche et droit sont :
 
@@ -711,14 +714,46 @@ $$p_{1/2} = \mathcal{P}^+(M_L) \, p_L + \mathcal{P}^-(M_R) \, p_R$$
 
 - **Précision légèrement inférieure** à Roe sur les chocs isolés (pas de propriété de Rankine-Hugoniot discrète comme Roe).
 - **Sensibilité basse vitesse** : en régime quasi-incompressible ($M \ll 1$), les oscillations de pression « *checkerboard* » peuvent apparaître. La variante AUSM+-up corrige ce défaut.
+- **Pas de diffusion de pression dans le débit massique.** Sur un saut de pression au repos ($u_L = u_R = 0$), $M_{1/2} = 0$ et $\dot{m}_{1/2} = 0$ : seule la pression d'interface agit. C'est exactement l'état initial du tube de Sod. La maille de faible densité reçoit de la quantité de mouvement sans recevoir de masse ni d'énergie ; à CFL 0,9, son énergie cinétique dépasse son énergie totale dès le premier pas et la pression devient négative. AUSM+ ne passe le tube de Sod qu'avec CFL $\lesssim$ 0,65. Ce défaut est le point de départ d'AUSM+-up.
 
 ### Comparaison
 
 AUSM+ se situe entre HLLC et Rusanov en termes de dissipation sur les cas test classiques. Il est particulièrement performant sur les écoulements à vitesse modérée et les contacts. Sa philosophie de splitting le rend très différent des solveurs de Riemann et offre une perspective complémentaire.
 
+### Variante AUSM+-up
+
+AUSM+-up [Liou, 2006, éq. 70-76] ajoute deux termes de diffusion, pondérés par une fonction d'échelle $f_a$ qui dépend du régime de Mach.
+
+**Diffusion de pression dans le débit massique** :
+
+$$M_{1/2} = \mathcal{M}^+(M_L) + \mathcal{M}^-(M_R) - \frac{K_p}{f_a} \max(1 - \sigma \bar{M}^2, 0) \, \frac{p_R - p_L}{\rho_{1/2} \, a_{1/2}^2}, \qquad \rho_{1/2} = \frac{\rho_L + \rho_R}{2}$$
+
+C'est le terme qui manque à AUSM+ : un saut de pression au repos met maintenant la masse en mouvement, et le tube de Sod passe à CFL 0,9.
+
+**Diffusion de vitesse dans la pression d'interface** :
+
+$$p_{1/2} = \mathcal{P}^+(M_L) \, p_L + \mathcal{P}^-(M_R) \, p_R - K_u \, \mathcal{P}^+(M_L) \, \mathcal{P}^-(M_R) \, (\rho_L + \rho_R) \, (f_a \, a_{1/2}) \, (u_R - u_L)$$
+
+**Fonction d'échelle** :
+
+$$\bar{M}^2 = \frac{u_L^2 + u_R^2}{2 a_{1/2}^2}, \qquad M_o^2 = \min\left(1, \max(\bar{M}^2, M_\infty^2)\right), \qquad f_a = M_o (2 - M_o)$$
+
+Le coefficient des polynômes de pression devient $\alpha = \frac{3}{16}(-4 + 5 f_a^2)$ au lieu de $3/16$. Paramètres : $K_p = 0{,}25$, $K_u = 0{,}75$, $\sigma = 1$.
+
+**Choix de la coupure $M_\infty$.** Sans coupure, $f_a \to 0$ dans une zone au repos et le terme $K_p / f_a$ diverge. Liou prend pour $M_\infty$ le Mach de référence de l'écoulement. Avec un schéma explicite, ce choix fixe aussi la raideur :
+
+| $M_\infty$ | Effet | Cas qui divergent (ordre 1 à CFL 0,9, MUSCL à CFL 0,5) |
+|:---:|:---|:---|
+| 1 | $f_a = 1$, pas d'adaptation bas Mach ; dissipation totale trop forte pour Euler explicite | onde acoustique (ordre 1) |
+| 0,5 (défaut) | compromis | aucun (à l'ordre 1 : jusqu'à CFL 0,8 ; à CFL 1, l'onde acoustique) |
+| 0,1 | $K_p / f_a$ trop grand, schéma raide | Sod, onde acoustique |
+
+C'est une illustration concrète d'un compromis général : un schéma conçu pour les bas Mach (préconditionnement) est fait pour l'implicite ou le pas de temps dual, et se paie en pas de temps quand on l'intègre explicitement.
+
 ### Références
 
 - [Liou, 1996] M.-S. Liou, « A sequel to AUSM: AUSM+ », *J. Comput. Phys.*, 129, pp. 364-382.
+- [Liou, 2006] M.-S. Liou, « A sequel to AUSM, Part II: AUSM+-up for all speeds », *J. Comput. Phys.*, 214, pp. 137-170.
 
 ---
 
@@ -746,7 +781,7 @@ Le tableau suivant résume les caractéristiques des huit schémas de flux :
 
 - **Composable** : indique si le flux peut être combiné avec les reconstructions d'ordre élevé (MUSCL, ENO, WENO). Les 7 flux composables (Godunov, Rusanov, HLL, HLLC, Roe, Roe sans correction, AUSM+) combinés avec 6 reconstructions donnent 42 schémas d'ordre élevé (cf. §3.7).
 
-- **Coût relatif** : estimation qualitative du coût par interface. Godunov est le plus cher (itération de Newton). Les schémas vectorisés (Rusanov, HLL, Lax-Friedrichs) sont les moins chers. HLLC est plus cher dans l'implémentation actuelle (boucle Python) mais pourrait être vectorisé.
+- **Coût relatif** : estimation qualitative du coût par interface. Godunov est le plus cher (itération de Newton). Les schémas vectorisés (Rusanov, HLL, Lax-Friedrichs) sont les moins chers. HLLC coûte un peu plus que HLL (états étoile).
 
 - **Dissipation** : niveau de dissipation numérique introduite par le schéma. Les schémas les plus dissipatifs étalent les discontinuités mais sont plus robustes. Les schémas les moins dissipatifs préservent mieux les discontinuités mais peuvent osciller (Lax-Wendroff) ou nécessiter des corrections (Roe).
 
