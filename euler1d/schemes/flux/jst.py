@@ -19,7 +19,8 @@ default 1.0) and kappa4 (background smoothing, default 1/64).  The default
 time integrator is RK4, following the original aerodynamic application where
 RK4 acts as an efficient iterative smoother.
 
-The stencil for the fourth-order term spans four cells, requiring n_ghost = 2.
+The fourth-order term spans four cells and the sensor, spread over four
+neighbours, needs one more on each side: n_ghost = 3.
 JST overrides ``compute_fluxes`` directly and does not use
 ``compute_riemann_flux``.  It is not composable with higher-order
 reconstructions.
@@ -53,7 +54,7 @@ class JST(NumericalScheme):
 
     The scheme overrides ``compute_fluxes`` directly; ``compute_riemann_flux``
     is not used.  Default time integrator is RK4.  Not composable with
-    higher-order reconstructions.  Requires n_ghost = 2.
+    higher-order reconstructions.  Requires n_ghost = 3.
 
     Parameters
     ----------
@@ -88,7 +89,10 @@ class JST(NumericalScheme):
 
     @property
     def n_ghost(self) -> int:
-        return 2
+        # The sensor at interface j+1/2 uses nu at cells j-1 .. j+2, and nu at
+        # a cell needs its two neighbours: three ghost cells.  With two, the
+        # sensor had to be truncated at the boundary interfaces.
+        return 3
 
     def compute_riemann_flux(
         self, UL: np.ndarray, UR: np.ndarray, gas: GasProperties, dx: float, dt: float
@@ -108,8 +112,8 @@ class JST(NumericalScheme):
 
         Parameters
         ----------
-        U : ndarray, shape (3, N + 4)
-            Conservative variables with 2 ghost cells on each side.
+        U : ndarray, shape (3, N + 6)
+            Conservative variables with 3 ghost cells on each side.
         gas : GasProperties
             Gas model (gamma).
         dx, dt : float
@@ -127,52 +131,38 @@ class JST(NumericalScheme):
         a = sound_speed(rho, p, gamma)
 
         # Spectral radius at each cell
-        lam = np.abs(u) + a  # (N+4,)
+        lam = np.abs(u) + a  # (N+6,)
 
         # Physical flux at each cell
-        F = compute_flux(U, gamma)  # (3, N+4)
+        F = compute_flux(U, gamma)  # (3, N+6)
+
+        # Interface j+1/2 (j = 0..N) lies between extended cells j+2 and j+3.
+        left = slice(2, -3)   # cells j+2, size N+1
+        right = slice(3, -2)  # cells j+3, size N+1
 
         # --- Pressure-based shock sensor ---
-        # nu_i = |p_{i+1} - 2*p_i + p_{i-1}| / (p_{i+1} + 2*p_i + p_{i-1})
-        # Defined for cells 1..N+2 (size N+2)
+        # nu_i = |p_{i+1} - 2*p_i + p_{i-1}| / (p_{i+1} + 2*p_i + p_{i-1}),
+        # defined for extended cells 1..N+4 (array index i-1, size N+4)
         nu = np.abs(p[2:] - 2.0 * p[1:-1] + p[:-2]) / (p[2:] + 2.0 * p[1:-1] + p[:-2])
 
-        # Spectral radius at N+1 interfaces (between cells 1..N+1 and 2..N+2)
-        lam_half = 0.5 * (lam[1:-2] + lam[2:-1])  # size N+1
+        # Spread over the four cells around the interface (cells j+1 .. j+4,
+        # i.e. nu indices j .. j+3): eps2 = kappa2 * max(nu_{j-1}, ..., nu_{j+2})
+        nu_intf = np.maximum(np.maximum(nu[0:-3], nu[1:-2]), np.maximum(nu[2:-1], nu[3:]))
 
-        # Spread sensor over 4 neighbours for better shock detection in 1D
-        # eps2_{j+1/2} = kappa2 * max(nu_{j-1}, nu_j, nu_{j+1}, nu_{j+2})
-        # nu has size N+2; we need N+1 values for interfaces
-        nu4 = np.maximum(np.maximum(nu[:-3], nu[1:-2]),
-                         np.maximum(nu[2:-1], nu[3:]))  # size N+2-3 = N-1
-        # Pad edges with 2-neighbour max to keep size N+1
-        nu2_left = np.maximum(nu[0], nu[1])
-        nu2_right = np.maximum(nu[-2], nu[-1])
-        nu_intf = np.empty(len(lam_half))
-        nu_intf[0] = nu2_left
-        nu_intf[1:-1] = nu4
-        nu_intf[-1] = nu2_right
+        lam_half = 0.5 * (lam[left] + lam[right])  # size N+1
 
         eps2 = self._kappa2 * nu_intf
         eps4 = np.maximum(0.0, self._kappa4 - eps2)
 
         # --- Dissipation terms ---
-        # d2: 2nd-order dissipation (anti-diffusion near shocks)
         # d2_{j+1/2} = eps2 * lam_{j+1/2} * (U_{j+1} - U_j)
-        dU1 = U[:, 2:-1] - U[:, 1:-2]  # U_{j+1} - U_j, size N+1
-        d2 = eps2[np.newaxis, :] * lam_half[np.newaxis, :] * dU1
+        d2 = eps2 * lam_half * (U[:, right] - U[:, left])
 
-        # d4: 4th-order dissipation (background smoothing)
         # d4_{j+1/2} = eps4 * lam_{j+1/2} * (U_{j+2} - 3*U_{j+1} + 3*U_j - U_{j-1})
-        dU3 = U[:, 3:] - 3.0 * U[:, 2:-1] + 3.0 * U[:, 1:-2] - U[:, :-3]
-        # dU3 has size N+2, we need N+1 values aligned with interfaces
-        # Interface j is between cells j+1 and j+2 (0-based)
-        # Need U_{j-1}, U_j, U_{j+1}, U_{j+2} → indices j-1 to j+2
-        # For N+1 interfaces starting at cell index 1: j=1..N+1
-        # dU3 slice: [0:N+1]
-        d4 = eps4[np.newaxis, :] * lam_half[np.newaxis, :] * dU3[:, :len(lam_half)]
+        dU3 = U[:, 4:-1] - 3.0 * U[:, right] + 3.0 * U[:, left] - U[:, 1:-4]
+        d4 = eps4 * lam_half * dU3
 
         # --- Central flux + dissipation ---
-        F_half = 0.5 * (F[:, 1:-2] + F[:, 2:-1]) - d2 + d4
+        F_half = 0.5 * (F[:, left] + F[:, right]) - d2 + d4
 
         return F_half

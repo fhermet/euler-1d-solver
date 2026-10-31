@@ -18,7 +18,8 @@ docs/01_euler_equations.md : Chapter 1, sections 1.1 through 1.4 for the
 References
 ----------
 [Toro, 2009] E.F. Toro, Riemann Solvers and Numerical Methods for Fluid
-    Dynamics, 3rd ed., Springer, section 1.3.
+    Dynamics, 3rd ed., Springer, §1.2 (thermodynamics, ideal gas) and §3.1
+    (one-dimensional Euler equations).
 """
 
 from __future__ import annotations
@@ -63,7 +64,7 @@ def primitive_to_conservative(
 
     References
     ----------
-    [Toro, 2009] section 1.3.
+    [Toro, 2009] §1.2 and §3.1.
     """
     E = p / (gamma - 1.0) + 0.5 * rho * u**2
     return np.array([rho, rho * u, E])
@@ -101,7 +102,7 @@ def conservative_to_primitive(
 
     References
     ----------
-    [Toro, 2009] section 1.3.
+    [Toro, 2009] §1.2 and §3.1.
     """
     rho = U[0]
     u = U[1] / rho
@@ -138,7 +139,7 @@ def compute_flux(U: np.ndarray, gamma: float) -> np.ndarray:
 
     References
     ----------
-    [Toro, 2009] section 1.3.
+    [Toro, 2009] §1.2 and §3.1.
     """
     rho, u, p = conservative_to_primitive(U, gamma)
     E = U[2]
@@ -174,7 +175,7 @@ def sound_speed(rho: np.ndarray, p: np.ndarray, gamma: float) -> np.ndarray:
 
     References
     ----------
-    [Toro, 2009] section 1.3.
+    [Toro, 2009] §1.2 and §3.1.
     """
     return np.sqrt(gamma * p / rho)
 
@@ -205,7 +206,7 @@ def max_wave_speed(U: np.ndarray, gamma: float) -> float:
 
     References
     ----------
-    [Toro, 2009] section 1.3.
+    [Toro, 2009] §1.2 and §3.1.
     """
     rho, u, p = conservative_to_primitive(U, gamma)
     a = sound_speed(rho, p, gamma)

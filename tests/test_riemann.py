@@ -1,4 +1,4 @@
-"""Exact Riemann solver against Toro (2009), Table 4.2."""
+"""Exact Riemann solver against the tests of Toro (2009), §4.3.3."""
 
 import pytest
 
