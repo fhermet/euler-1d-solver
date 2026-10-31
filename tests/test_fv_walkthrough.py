@@ -90,3 +90,38 @@ def test_odd_mesh_mixed_cell():
     assert default_interface(UL, UR) in (7, 8)
     flat = flat_cells(U, scheme, cfg.gas.gamma, cfg.mesh.dx, 0)
     assert flat.shape == (15,) and flat.dtype == bool
+
+
+from euler1d.config import GasProperties
+from euler1d.fv_walkthrough import exact_waves, model_waves
+from euler1d.physics import primitive_to_conservative
+
+
+def test_sod_exact_waves():
+    waves = exact_waves((1.0, 0.0, 1.0), (0.125, 0.0, 0.1), 1.4)
+    assert [w.kind for w in waves] == ["rarefaction", "contact", "shock"]
+    head, tail = waves[0].speeds
+    assert head == pytest.approx(-np.sqrt(1.4), rel=1e-12)
+    assert head < tail < waves[1].speeds[0]
+    assert waves[1].speeds[0] == pytest.approx(0.92745, rel=1e-4)
+    assert waves[2].speeds[0] == pytest.approx(1.75216, rel=1e-4)
+
+
+def test_vacuum_waves():
+    waves = exact_waves((1.0, -5.0, 0.4), (1.0, 5.0, 0.4), 1.4)
+    assert [w.kind for w in waves] == ["rarefaction", "vacuum", "rarefaction"]
+
+
+def test_model_waves_per_flux():
+    gas = GasProperties(1.4)
+    UL = primitive_to_conservative(1.0, 0.0, 1.0, 1.4)
+    UR = primitive_to_conservative(0.125, 0.0, 0.1, 1.4)
+    assert len(model_waves("hll", UL, UR, gas)) == 2
+    sl, s_star, sr = model_waves("hllc", UL, UR, gas)
+    assert sl < s_star < sr
+    lo, hi = model_waves("rusanov", UL, UR, gas)
+    assert lo == pytest.approx(-hi)
+    assert len(model_waves("roe-nc", UL, UR, gas)) == 3
+    assert model_waves("godunov", UL, UR, gas) == []
+    assert model_waves("ausm+", UL, UR, gas) is None
+    assert model_waves("ausm+-up", UL, UR, gas) is None
