@@ -660,9 +660,11 @@ avec :
 
 ### Nombre de Mach d'interface
 
-La vitesse du son à l'interface est prise comme la moyenne arithmétique :
+La vitesse du son à l'interface est celle de Liou [Liou, 1996, éq. 26], construite à partir de la vitesse du son critique $a^{\ast 2} = \frac{2(\gamma-1)}{\gamma+1} H$ :
 
-$$a_{1/2} = \frac{a_L + a_R}{2}$$
+$$a_{1/2} = \min(\tilde{a}_L, \tilde{a}_R), \qquad \tilde{a}_L = \frac{a^{\ast 2}_L}{\max(a^\ast_L, u_L)}, \qquad \tilde{a}_R = \frac{a^{\ast 2}_R}{\max(a^\ast_R, -u_R)}$$
+
+Liou introduit ce choix, plutôt qu'une simple moyenne $(a_L + a_R)/2$, pour améliorer la capture des chocs stationnaires.
 
 Les nombres de Mach gauche et droit sont :
 
@@ -711,14 +713,46 @@ $$p_{1/2} = \mathcal{P}^+(M_L) \, p_L + \mathcal{P}^-(M_R) \, p_R$$
 
 - **Précision légèrement inférieure** à Roe sur les chocs isolés (pas de propriété de Rankine-Hugoniot discrète comme Roe).
 - **Sensibilité basse vitesse** : en régime quasi-incompressible ($M \ll 1$), les oscillations de pression « *checkerboard* » peuvent apparaître. La variante AUSM+-up corrige ce défaut.
+- **Pas de diffusion de pression dans le débit massique.** Sur un saut de pression au repos ($u_L = u_R = 0$), $M_{1/2} = 0$ et $\dot{m}_{1/2} = 0$ : seule la pression d'interface agit. C'est exactement l'état initial du tube de Sod. La maille de faible densité reçoit de la quantité de mouvement sans recevoir de masse ni d'énergie ; à CFL 0,9, son énergie cinétique dépasse son énergie totale dès le premier pas et la pression devient négative. AUSM+ ne passe le tube de Sod qu'avec CFL $\lesssim$ 0,65. Ce défaut est le point de départ d'AUSM+-up.
 
 ### Comparaison
 
 AUSM+ se situe entre HLLC et Rusanov en termes de dissipation sur les cas test classiques. Il est particulièrement performant sur les écoulements à vitesse modérée et les contacts. Sa philosophie de splitting le rend très différent des solveurs de Riemann et offre une perspective complémentaire.
 
+### Variante AUSM+-up
+
+AUSM+-up [Liou, 2006, éq. 70-76] ajoute deux termes de diffusion, pondérés par une fonction d'échelle $f_a$ qui dépend du régime de Mach.
+
+**Diffusion de pression dans le débit massique** :
+
+$$M_{1/2} = \mathcal{M}^+(M_L) + \mathcal{M}^-(M_R) - \frac{K_p}{f_a} \max(1 - \sigma \bar{M}^2, 0) \, \frac{p_R - p_L}{\rho_{1/2} \, a_{1/2}^2}, \qquad \rho_{1/2} = \frac{\rho_L + \rho_R}{2}$$
+
+C'est le terme qui manque à AUSM+ : un saut de pression au repos met maintenant la masse en mouvement, et le tube de Sod passe à CFL 0,9.
+
+**Diffusion de vitesse dans la pression d'interface** :
+
+$$p_{1/2} = \mathcal{P}^+(M_L) \, p_L + \mathcal{P}^-(M_R) \, p_R - K_u \, \mathcal{P}^+(M_L) \, \mathcal{P}^-(M_R) \, (\rho_L + \rho_R) \, (f_a \, a_{1/2}) \, (u_R - u_L)$$
+
+**Fonction d'échelle** :
+
+$$\bar{M}^2 = \frac{u_L^2 + u_R^2}{2 a_{1/2}^2}, \qquad M_o^2 = \min\left(1, \max(\bar{M}^2, M_\infty^2)\right), \qquad f_a = M_o (2 - M_o)$$
+
+Le coefficient des polynômes de pression devient $\alpha = \frac{3}{16}(-4 + 5 f_a^2)$ au lieu de $3/16$. Paramètres : $K_p = 0{,}25$, $K_u = 0{,}75$, $\sigma = 1$.
+
+**Choix de la coupure $M_\infty$.** Sans coupure, $f_a \to 0$ dans une zone au repos et le terme $K_p / f_a$ diverge. Liou prend pour $M_\infty$ le Mach de référence de l'écoulement. Avec un schéma explicite, ce choix fixe aussi la raideur :
+
+| $M_\infty$ | Effet | Cas qui divergent (ordre 1 et MUSCL, CFL 0,9) |
+|:---:|:---|:---|
+| 1 | $f_a = 1$, pas d'adaptation bas Mach ; dissipation totale trop forte pour Euler explicite | onde acoustique |
+| 0,5 (défaut) | compromis | aucun (jusqu'à CFL 0,8 ; à CFL 1, l'onde acoustique) |
+| 0,1 | $K_p / f_a$ trop grand, schéma raide | Sod, onde acoustique |
+
+C'est une illustration concrète d'un compromis général : un schéma conçu pour les bas Mach (préconditionnement) est fait pour l'implicite ou le pas de temps dual, et se paie en pas de temps quand on l'intègre explicitement.
+
 ### Références
 
 - [Liou, 1996] M.-S. Liou, « A sequel to AUSM: AUSM+ », *J. Comput. Phys.*, 129, pp. 364-382.
+- [Liou, 2006] M.-S. Liou, « A sequel to AUSM, Part II: AUSM+-up for all speeds », *J. Comput. Phys.*, 214, pp. 137-170.
 
 ---
 
