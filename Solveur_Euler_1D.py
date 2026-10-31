@@ -28,7 +28,7 @@ from euler1d.results import (
     local_orders,
 )
 from euler1d.schemes import get_scheme
-from euler1d.solver import run_simulation
+from euler1d.solver import run_simulation, select_time_integrator
 from ui_common import (
     COLORS,
     MARKERS,
@@ -356,8 +356,18 @@ def cached_simulate(
         "floor_energy": result.floor_energy,
         "cfl": result.cfl,
         "cfl_requested": config.time.cfl,
+        "time_integrator": select_time_integrator(scheme, rk),
     }
     return snapshots, result.times, result.wall_time, scheme.name, diagnostics
+
+
+def _common_cfl(selected: list, cfl: float, variables: str) -> float:
+    """The requested CFL, lowered to the smallest limit among the selected schemes."""
+    limits = [
+        get_scheme(name, **_scheme_kwargs(name, limiter, variables)).max_cfl
+        for name, limiter, _ in selected
+    ]
+    return min([cfl] + limits)
 
 
 def report_diagnostics(display_name: str, diagnostics: dict) -> None:
@@ -637,15 +647,27 @@ tab1, tab4 = st.tabs([
 with tab1:
     st.subheader("Scheme comparison")
     selected = scheme_selector_multi("tab1")
+    same_cfl = st.checkbox(
+        "Same CFL for all schemes",
+        value=False,
+        help=(
+            "By default each scheme runs at the requested CFL capped by its own "
+            "limit (1 for first-order schemes, 0.5 for MUSCL, ENO, WENO), so the "
+            "schemes do not use the same time step. Tick to run all of them at "
+            "the smallest of these CFL numbers, for a comparison at equal time step."
+        ),
+        key="tab1_same_cfl",
+    )
 
     if selected:
         with st.spinner("Running simulation..."):
             dfs_list = []
             exact = cached_exact(test_case_name, n_cells, cfl, gamma)
+            run_cfl = _common_cfl(selected, cfl, recon_variables) if same_cfl else cfl
 
             for sname, limiter, ti in selected:
                 snapshots, times, wall_time, display_name, diag = cached_simulate(
-                    test_case_name, n_cells, cfl, gamma, sname, limiter, 1, ti,
+                    test_case_name, n_cells, run_cfl, gamma, sname, limiter, 1, ti,
                     positivity_floor, recon_variables,
                 )
                 report_diagnostics(display_name, diag)
@@ -655,7 +677,9 @@ with tab1:
                 rho, u, p = conservative_to_primitive(U, gamma)
                 x = exact["x"].values
                 df_num = pd.DataFrame({"x": x, "rho": rho, "u": u, "p": p})
-                dfs_list.append((display_name, df_num))
+                dfs_list.append(
+                    (f"{display_name} [{diag['time_integrator']}, CFL {diag['cfl']:g}]", df_num)
+                )
 
             fig = _make_profile_figure(
                 dfs_list, exact,
@@ -690,7 +714,7 @@ with tab1:
                 discontinuous_note = None
                 for sname, limiter, ti in selected:
                     df = cached_convergence(
-                        test_case_name, cfl, gamma, sname, limiter, n_cells_list, ti,
+                        test_case_name, run_cfl, gamma, sname, limiter, n_cells_list, ti,
                         recon_variables,
                     )
                     if df.empty:
@@ -707,6 +731,11 @@ with tab1:
                     conv_dfs.append((display_name, df))
 
                     scheme = get_scheme(sname, **_scheme_kwargs(sname, limiter, recon_variables))
+                    rk_used = select_time_integrator(scheme, None if ti == "Auto" else ti)
+                    display_name = (
+                        f"{display_name} [{rk_used}, CFL {min(run_cfl, scheme.max_cfl):g}]"
+                    )
+                    conv_dfs[-1] = (display_name, df)
                     expected, note = expected_order(
                         scheme, None if ti == "Auto" else ti,
                         _build_config(test_case_name, n_cells_list[0], cfl, gamma),
@@ -805,7 +834,10 @@ with tab4:
         time_idx = 0
         selected_time = snap_times[0] if snap_times else t_final
 
-    st.write(f"**Scheme:** {dn} | **t =** {selected_time:.6f} / {t_final:.6f} | **Wall time:** {wt:.4f} s")
+    st.write(
+        f"**Scheme:** {dn} [{diag['time_integrator']}, CFL {diag['cfl']:g}] | "
+        f"**t =** {selected_time:.6f} / {t_final:.6f} | **Wall time:** {wt:.4f} s"
+    )
 
     # Plot snapshot vs exact at that time
     U = np.array(snapshots[time_idx])
