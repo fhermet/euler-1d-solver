@@ -180,7 +180,7 @@ def fig_fluxes(x, dx, U, breakdown: FluxBreakdown, component, var, gamma, k) -> 
     fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]),
                      range=[float(np.nanmin(W[var])) - 0.1 * span, top + 0.3 * span], row=1, col=1)
     fig.update_xaxes(thesis_axis(title_text="x"), row=1, col=1)
-    labels = ["moyenne centrée", "dissipation", "flux du schéma", "Godunov exact"]
+    labels = ["centrée", "dissipation", "schéma", "Godunov"]
     values = [breakdown.centred[component, k], breakdown.dissipation[component, k],
               breakdown.numerical[component, k], breakdown.godunov[component, k]]
     fig.add_trace(go.Bar(x=labels, y=values, name="décomposition",
@@ -203,8 +203,11 @@ def fig_update(x, dx, U, U_new, F, i, var, gamma) -> go.Figure:
     W, W_new = _prim(U, gamma), _prim(U_new, gamma)
     fig.add_vrect(x0=x[i] - 0.5 * dx, x1=x[i] + 0.5 * dx, fillcolor=COLORS[3], opacity=0.12,
                   line_width=0, row=1, col=2)
-    fig.add_trace(_plateaus(x, dx, W[var], "avant", COLORS[0]), row=1, col=2)
-    fig.add_trace(_plateaus(x, dx, W_new[var], "après", COLORS[1], "dash"), row=1, col=2)
+    before = _plateaus(x, dx, W[var], "avant", COLORS[0])
+    after = _plateaus(x, dx, W_new[var], "après", COLORS[1], "dash")
+    before.showlegend = after.showlegend = False   # same names as the bars
+    fig.add_trace(before, row=1, col=2)
+    fig.add_trace(after, row=1, col=2)
     fig.update_xaxes(thesis_axis(title_text="x"), row=1, col=2)
     fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]), row=1, col=2)
     fig.update_layout(barmode="group")
@@ -224,8 +227,9 @@ def fig_stages(x, dx, stages: list[np.ndarray], var, gamma, i_max) -> go.Figure:
         else:
             name = f"étage {s + 1}"
         last = s == len(stages) - 1
+        # Final state in red; stages in the other colours (red is COLORS[1]).
         fig.add_trace(_plateaus(x, dx, _prim(U, gamma)[var], name,
-                                COLORS[1] if last else COLORS[s % len(COLORS)],
+                                COLORS[1] if last else COLORS[(0, 2, 3, 4, 5, 6)[s % 6]],
                                 "solid" if last else dashes[s % len(dashes)],
                                 3 if last else 1.6))
     fig.add_vrect(x0=x[i_max] - 0.5 * dx, x1=x[i_max] + 0.5 * dx, fillcolor=COLORS[4],

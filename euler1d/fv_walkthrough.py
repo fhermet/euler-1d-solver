@@ -75,9 +75,15 @@ def interface_states(
 def flat_cells(
     U: np.ndarray, scheme: NumericalScheme, gamma: float, dx: float, var: int
 ) -> np.ndarray:
-    """Cells whose reconstruction of primitive variable *var* (0 rho, 1 u, 2 p)
-    is flat while a neighbour differs: the slope was cancelled (limiter,
-    extremum, discontinuity).  All False without reconstruction."""
+    """Cells where the reconstruction cancelled a visible slope (limiter,
+    extremum, discontinuity), for primitive variable *var* (0 rho, 1 u, 2 p).
+
+    A cell is flagged when its neighbours differ by a visible amount (more
+    than 1/1000 of the range of the variable) and the reconstructed slope
+    keeps less than 1 % of that difference.  Differences at round-off level,
+    which also make the limiter cancel the slope, are not flagged.  All
+    False without reconstruction.
+    """
     n = U.shape[1]
     if not isinstance(scheme, ReconstructedScheme):
         return np.zeros(n, dtype=bool)
@@ -87,9 +93,8 @@ def flat_cells(
     W = np.array(conservative_to_primitive(U, gamma))[var]
     W_ext = np.concatenate([W[:1], W, W[-1:]])
     neighbours = np.maximum(np.abs(W_ext[1:-1] - W_ext[:-2]), np.abs(W_ext[2:] - W_ext[1:-1]))
-    scale = max(float(np.max(np.abs(W))), 1.0)
-    tol = 1e-12 * scale
-    return (np.abs(right_face - left_face) <= tol) & (neighbours > tol)
+    visible = 1e-3 * max(float(np.ptp(W)), 1e-300)
+    return (neighbours > visible) & (np.abs(right_face - left_face) < 0.01 * neighbours)
 
 
 def default_interface(UL: np.ndarray, UR: np.ndarray) -> int:

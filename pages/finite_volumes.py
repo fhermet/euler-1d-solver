@@ -215,8 +215,10 @@ elif step == 2:
         "de la maille de gauche, et U_R, venu de celle de droite. À l'ordre 1, ce sont "
         "simplement les moyennes voisines. À l'ordre élevé, on extrapole la solution "
         "jusqu'aux faces : dans les zones régulières, U_L et U_R se rapprochent et le saut "
-        "(barres du bas) diminue, donc la dissipation du flux aussi. Le limiteur annule la "
-        "pente là où elle créerait un nouvel extremum (croix). Pour ENO et WENO, le code ne "
+        "(barres du bas) diminue, donc la dissipation du flux aussi. Le limiteur annule ou "
+        "réduit fortement la pente là où les écarts voisins sont très différents : "
+        "extremum, discontinuité, ou coin du profil comme le pied d'une détente (croix). "
+        "Pour ENO et WENO, le code ne "
         "calcule que les valeurs aux faces : le pointillé les relie, ce n'est pas le "
         "polynôme. La reconstruction porte ici sur les variables primitives (§5.6)."
     )

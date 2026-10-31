@@ -125,3 +125,19 @@ def test_model_waves_per_flux():
     assert model_waves("godunov", UL, UR, gas) == []
     assert model_waves("ausm+", UL, UR, gas) is None
     assert model_waves("ausm+-up", UL, UR, gas) is None
+
+
+def test_flat_cells_ignore_invisible_differences():
+    # After a few steps, round-off (1e-15) next to the rarefaction foot
+    # (1e-9) makes the limiter cancel slopes nobody can see: not flagged.
+    cfg, scheme, U = _setup("muscl-hllc")
+    U = advance(U, scheme, cfg, None, 5).U
+    flat = flat_cells(U, scheme, cfg.gas.gamma, cfg.mesh.dx, 0)
+    assert not flat[1] and not flat[14]
+
+
+def test_flat_cells_mark_the_cells_next_to_the_jump():
+    cfg, _, U = _setup("muscl-hllc")
+    scheme = get_scheme("muscl-hllc", limiter="minmod")
+    flat = flat_cells(U, scheme, cfg.gas.gamma, cfg.mesh.dx, 0)
+    assert flat[7] and flat[8] and flat.sum() == 2
