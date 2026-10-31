@@ -21,6 +21,18 @@ pip install -r requirements.txt
 streamlit run Solveur_Euler_1D.py
 ```
 
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+The suite checks the exact Riemann solver against Toro's tables, exact
+conservation, observed convergence orders, and that failures (divergence,
+positivity floor, reduced CFL) are reported. It runs on every push and pull
+request (GitHub Actions, `.github/workflows/tests.yml`).
+
 ## Code architecture
 
 ```
@@ -28,13 +40,14 @@ Solveur_Euler_1D.py    Streamlit entry point (main page)
 ui_common.py           Plotly styling, constants, shared scheme selectors
 pages/
 └── 2_Fourier_Analysis.py   Streamlit page: numerical dissipation and dispersion
+tests/                 pytest suite
 
 euler1d/
 ├── config.py          Configuration dataclasses (gas, mesh, time, problem)
 ├── physics.py         EOS, primitive/conservative conversions, physical flux
 ├── riemann.py         Exact Riemann solver (vectorized NumPy)
 ├── boundary.py        Boundary conditions (ghost cells)
-├── solver.py          Time-stepping loop (RK1 to RK5)
+├── solver.py          Time-stepping loop (RK1 to RK5), CFL capped per scheme
 ├── results.py         Exact solution, error norms, convergence
 ├── fourier_analysis.py  Numerical dissipation/dispersion analysis
 ├── test_cases.py      Predefined test cases
@@ -51,6 +64,8 @@ euler1d/
     │   ├── lax_wendroff.py    Lax-Wendroff (centered)
     │   └── jst.py             JST (centered)
     └── reconstruction/
+        ├── base.py        Common reconstruction + flux scheme class
+        ├── variables.py   Primitive, conservative or characteristic variables
         ├── limiters.py    Slope limiters (minmod, van-leer, superbee, mc, van-albada)
         ├── muscl.py       MUSCL reconstruction (order 2)
         ├── eno.py         ENO2 reconstruction (order 2)
