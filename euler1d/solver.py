@@ -97,6 +97,7 @@ def _compute_rhs(
     dx: float,
     dt: float,
     bc_type: str,
+    dt_flux: float | None = None,
 ) -> np.ndarray:
     """Compute the scaled right-hand side Δt·L(U) of the semi-discrete system.
 
@@ -127,6 +128,9 @@ def _compute_rhs(
     bc_type : str
         Boundary condition type (``"transmissive"``, ``"reflective"``,
         ``"periodic"``).
+    dt_flux : float or None
+        Time step handed to the numerical flux, if different from *dt*.
+        Defaults to *dt*.
 
     Returns
     -------
@@ -138,7 +142,7 @@ def _compute_rhs(
     docs/06_time_integration.md §6.1, docs/03_finite_volume.md §3.3.
     """
     U_ext = apply_boundary_conditions(U, bc_type, n_ghost=scheme.n_ghost)
-    F = scheme.compute_fluxes(U_ext, gas, dx, dt)
+    F = scheme.compute_fluxes(U_ext, gas, dx, dt if dt_flux is None else dt_flux)
     return -(dt / dx) * (F[:, 1:] - F[:, :-1])
 
 
@@ -327,13 +331,20 @@ def run_simulation(
         else:
             dt = tc.cfl * dx / s_max
 
-        # Don't overshoot
+        # Don't overshoot.  A flux whose dissipation scales with dx/dt
+        # (Lax-Friedrichs) keeps the nominal step: with the shortened one, a
+        # tiny final step would still apply a full averaging.  Schemes that
+        # embed the time integration (Lax-Wendroff) need the actual step.
+        dt_flux = dt
         if t + dt > t_final:
             dt = t_final - t
+            if scheme.time_integral_included:
+                dt_flux = dt
 
         with np.errstate(invalid="ignore", divide="ignore", over="ignore"):
             U_new = _rk_step(
-                U, rk, lambda v: _compute_rhs(v, scheme, gas, dx, dt, config.bc_type)
+                U, rk,
+                lambda v: _compute_rhs(v, scheme, gas, dx, dt, config.bc_type, dt_flux),
             )
         if not np.isfinite(U_new).all():
             diverge("NaN/Inf in the updated state")
