@@ -16,8 +16,10 @@ Two weight variants are available:
 - **Z** (WENO-Z, Borges et al.): uses tau_5 = |beta_0 - beta_2| to restore
   optimal order at critical points, with eps = dx^2.
 
-The reconstruction operates on primitive variables W = (rho, u, p) and
-requires 3 ghost cells on each side.
+The reconstruction operates by default on primitive variables W = (rho, u, p),
+which limits it to order 2 on nonlinear flows; conservative or characteristic
+variables keep order 5 (see ``variables.py``).  It requires 3 ghost cells on
+each side.
 
 See docs/05_reconstruction.md, section 5.4 for full derivation, polynomial
 formulas, and JS vs Z comparison.

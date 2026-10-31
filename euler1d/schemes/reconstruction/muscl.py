@@ -1,8 +1,9 @@
 """MUSCL (Monotone Upstream-centered Scheme for Conservation Laws) reconstruction.
 
 Provides second-order spatial accuracy through piecewise-linear reconstruction
-with slope limiting. The reconstruction operates on primitive variables
-W = (rho, u, p) and uses a TVD slope limiter to prevent oscillations near
+with slope limiting. The reconstruction operates by default on primitive
+variables W = (rho, u, p) (see ``variables.py`` for the other choices) and
+uses a TVD slope limiter to prevent oscillations near
 discontinuities while maintaining accuracy in smooth regions.
 
 The composition principle applies: MUSCLScheme pairs this reconstruction with

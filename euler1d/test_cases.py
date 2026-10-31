@@ -146,7 +146,7 @@ def double_rarefaction(n_cells: int = 200) -> SimulationConfig:
 
 
 def stationary_contact(n_cells: int = 200) -> SimulationConfig:
-    """Stationary contact discontinuity -- pure diffusion test (Section 8.5).
+    """Stationary contact discontinuity -- pure diffusion test (Section 8.4).
 
     Initial states: (rho, u, p)_L = (1, 0, 1), (rho, u, p)_R = (0.125, 0, 1).
     Velocity and pressure are identical on both sides; only density has a jump
@@ -319,7 +319,7 @@ def near_vacuum(n_cells: int = 200) -> SimulationConfig:
 
 
 def two_shocks(n_cells: int = 200) -> SimulationConfig:
-    """Toro test 4 -- collision of two strong shocks (Section 8.4).
+    """Toro test 4 -- collision of two strong shocks (Section 8.6).
 
     Initial states: (rho, u, p)_L = (5.99924, 19.5975, 460.894),
     (rho, u, p)_R = (5.99242, -6.19633, 46.0950).  Both sides have large
@@ -368,7 +368,7 @@ def two_shocks(n_cells: int = 200) -> SimulationConfig:
 
 
 def entropy_wave(n_cells: int = 200, epsilon: float = 0.2) -> SimulationConfig:
-    """Entropy wave: sinusoidal density perturbation advected at constant velocity (Section 8.4).
+    """Entropy wave: sinusoidal density perturbation advected at constant velocity (Section 8.8).
 
     Initial condition: rho = 1 + epsilon*sin(2*pi*x), u = u0 = 1, p = p0 = 1.
     The exact solution is pure advection of the density profile at speed u0;
@@ -417,7 +417,7 @@ def entropy_wave(n_cells: int = 200, epsilon: float = 0.2) -> SimulationConfig:
 
 
 def acoustic_wave(n_cells: int = 200, epsilon: float = 1e-4) -> SimulationConfig:
-    """Right-going acoustic wave: small isentropic perturbation (Section 8.5).
+    """Right-going acoustic wave: small isentropic perturbation (Section 8.9).
 
     Initial perturbation aligned with the right acoustic eigenvector (Ch. 1,
     Section 1.4) around base state (rho0, u0, p0) = (1, 0, 1):
@@ -487,7 +487,7 @@ def isentropic_wave(n_cells: int = 200, epsilon: float = 0.2) -> SimulationConfi
     Unlike the entropy and acoustic waves, rho, u and p all vary with a large
     amplitude and the problem is fully nonlinear: it is the case that shows
     whether a scheme of order above 2 keeps its order (see the choice of
-    reconstructed variables, docs/05_reconstruction.md, section 5.5).
+    reconstructed variables, docs/05_reconstruction.md, section 5.6).
 
     The exact solution is obtained by solving x = x0 + (u + a)(x0) t for the
     foot x0 of the characteristic (Newton iteration).

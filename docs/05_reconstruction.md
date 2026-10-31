@@ -12,15 +12,17 @@ Peut-on simplement utiliser une reconstruction linéaire (ou polynomiale de degr
 
 Ce résultat fondamental signifie que toute montée en ordre passe nécessairement par une reconstruction **non linéaire**, c'est-à-dire dont les coefficients dépendent de la solution locale. C'est exactement ce que font les méthodes MUSCL (limiteurs de pente), ENO (sélection de stencil) et WENO (pondération non linéaire de stencils) présentées dans ce chapitre.
 
-### Reconstruction sur les variables primitives
+### Variables reconstruites
 
-Toutes les reconstructions de ce solveur opèrent sur les **variables primitives** $\mathbf{W} = (\rho, u, p)$ et non sur les variables conservatives $\mathbf{U} = (\rho, \rho u, E)$. Ce choix est motivé par le meilleur **conditionnement** des variables primitives au voisinage des discontinuités :
+Par défaut, les reconstructions de ce solveur opèrent sur les **variables primitives** $\mathbf{W} = (\rho, u, p)$ et non sur les variables conservatives $\mathbf{U} = (\rho, \rho u, E)$. Ce choix est motivé par le meilleur **conditionnement** des variables primitives au voisinage des discontinuités :
 
 - Près d'un **choc**, $\rho u$ et $E$ présentent des sauts couplés (le produit $\rho u$ mélange densité et vitesse), tandis que $\rho$, $u$ et $p$ ont des sauts indépendants et plus réguliers.
 - Près d'une **discontinuité de contact**, seule $\rho$ est discontinue parmi les primitives, alors que $\rho u$ et $E$ le sont aussi parmi les conservatives.
 - Les limiteurs et indicateurs de régularité fonctionnent mieux sur des variables dont les variations sont découplées et monotones par morceaux.
 
 Le flux de calcul est donc : $\mathbf{U} \to \mathbf{W}$ (conversion), reconstruction de $\mathbf{W}_L, \mathbf{W}_R$ aux interfaces, puis $\mathbf{W}_L, \mathbf{W}_R \to \mathbf{U}_L, \mathbf{U}_R$ (reconversion) avant passage au solveur de Riemann.
+
+Ce choix a un prix au-delà de l'ordre 2 : il est discuté au §5.6, qui présente aussi les deux autres options (variables conservatives et caractéristiques).
 
 ### Principe de composition
 
@@ -30,13 +32,11 @@ $$\text{Schéma d'ordre élevé} = \underbrace{\text{Reconstruction spatiale}}_{
 
 La reconstruction fournit les états $\mathbf{W}_L$ et $\mathbf{W}_R$ à chaque interface ; le flux numérique les utilise pour calculer $\hat{\mathbf{F}}_{i+1/2}$. Toute combinaison reconstruction × flux composable est valide (cf. Chapitre 4, Introduction). Les schémas centrés (Lax-Friedrichs, Lax-Wendroff, JST) ne sont **pas** composables avec ces reconstructions.
 
-### Plancher de positivité
+### États de face non physiques
 
-Toutes les reconstructions de ce solveur appliquent un **plancher de positivité** aux valeurs reconstruites de $\rho$ et $p$ :
+Une reconstruction d'ordre élevé peut extrapoler une densité ou une pression négative à une interface, typiquement à côté d'une zone quasi vide. Un tel état de face est remplacé par la valeur de la maille (reconstruction d'ordre 1 sur cette face). Le schéma reste conservatif, puisque le flux à chaque interface est unique.
 
-$$\rho_L, \rho_R \geq 10^{-10}, \qquad p_L, p_R \geq 10^{-10}$$
-
-Ce garde-fou empêche l'apparition de densités ou pressions négatives qui provoqueraient des erreurs numériques (racine carrée d'un nombre négatif dans le calcul de la vitesse du son).
+Si la maille elle-même est déjà non physique (dans un étage Runge-Kutta, par exemple), ce remplacement ne suffit pas : le calcul s'arrête et l'interface le signale. Une version antérieure du code ramenait la densité et la pression de face à $10^{-10}$, ce qui masquait ces échecs (voir §8.3).
 
 ---
 
@@ -405,20 +405,60 @@ En pratique, la variante Z est recommandée pour les solutions contenant des ext
 
 | Propriété | MUSCL | ENO2 | WENO3 | WENO5 |
 |---|---|---|---|---|
-| **Ordre spatial** | 2 | 2 | 3 | 5 |
+| **Ordre spatial formel** | 2 | 2 | 3 | 5 |
+| **Ordre en variables primitives, écoulement non linéaire** | 2 | 2 | 2 | 2 |
 | **Cellules fantômes** ($n_{\text{ghost}}$) | 2 | 2 | 2 | 3 |
 | **Nombre de stencils** | 1 (pente limitée) | 2 (sélection) | 2 (pondération) | 3 (pondération) |
 | **Contrôle des oscillations** | Limiteur TVD | Sélection de stencil | Poids non linéaires | Poids non linéaires |
 | **Précision aux points critiques (JS)** | — | — | Dégradée | Dégradée |
 | **Précision aux points critiques (Z)** | — | — | **Restaurée** | **Restaurée** |
 | **Coût relatif** | Faible | Faible | Modéré | Élevé |
-| **Intégrateur par défaut** | RK2 | RK2 | SSP-RK3 | RK5 (Dormand-Prince) |
+| **Intégrateur par défaut** | RK2 | RK2 | SSP-RK3 | SSP-RK3 |
 | **Paramètres utilisateur** | Choix du limiteur | Aucun | Variante JS/Z | Variante JS/Z |
 | **Composable avec** | Rusanov, HLL, HLLC, Roe, Godunov | idem | idem | idem |
 
 **Recommandations pratiques** :
 
 - Pour un **premier calcul rapide** ou un problème dominé par des chocs forts : **MUSCL + van Leer** offre le meilleur compromis robustesse/coût.
-- Pour une **étude de convergence** en maillage ou une solution lisse : **WENO5-Z** préserve l'ordre 5 même aux extrema.
+- Pour une **étude de convergence** en maillage ou une solution lisse : **WENO5-Z** préserve l'ordre 5 même aux extrema, à condition de reconstruire les variables conservatives ou caractéristiques et d'intégrer en temps avec RK5 (§5.6).
 - Pour une **capture fine des contacts** : **MUSCL + superbee** (avec prudence sur les profils lisses) ou **WENO5**.
 - Le choix du **flux numérique** (HLLC recommandé) a souvent plus d'impact que le choix de la reconstruction sur la qualité de la discontinuité de contact.
+
+---
+
+## §5.6 Choix des variables reconstruites
+
+Les formules des §5.1 à §5.4 sont scalaires : elles s'appliquent composante par composante à un vecteur de trois variables. Le choix de ces variables est indépendant de la reconstruction ; le solveur en propose trois (sélecteur « Reconstructed variables » de l'interface, ou `get_scheme(..., variables=...)`).
+
+### Variables primitives (défaut)
+
+Robustes près des discontinuités (voir l'introduction du chapitre). Mais le schéma fait évoluer des **moyennes de maille** $\bar{\mathbf{U}}_i$, et la conversion $\mathbf{W}(\bar{\mathbf{U}}_i)$ n'est pas la moyenne de $\mathbf{W}$ sur la maille : pour une fonction non linéaire, la moyenne de l'image n'est pas l'image de la moyenne. L'écart est en $O(\Delta x^2)$ :
+
+$$\mathbf{W}(\bar{\mathbf{U}}_i) = \overline{\mathbf{W}}_i + O(\Delta x^2)$$
+
+Une reconstruction d'ordre 5 appliquée à des données entachées d'une erreur d'ordre 2 donne un schéma d'ordre 2. Ce n'est visible que si $u$ varie avec $\rho$ : sur l'onde entropique ($u$ et $p$ constants), la conversion est exacte ; sur l'onde acoustique ($\epsilon = 10^{-4}$), les termes non linéaires sont de l'ordre de $10^{-8}$. Il faut un cas réellement non linéaire, comme l'onde isentrope du §8.10.
+
+### Variables conservatives
+
+Les moyennes $\bar{\mathbf{U}}_i$ sont exactes : l'ordre formel est conservé. En contrepartie, les sauts couplés de $\rho u$ et $E$ près d'un choc fort peuvent produire de légères oscillations.
+
+### Variables caractéristiques
+
+À chaque interface $i+1/2$, on calcule la matrice de Roe entre $\bar{\mathbf{U}}_i$ et $\bar{\mathbf{U}}_{i+1}$, ses vecteurs propres à droite $\mathbf{R}$ et à gauche $\mathbf{L} = \mathbf{R}^{-1}$. Tout le stencil est projeté, $\mathbf{C}_k = \mathbf{L}\,\bar{\mathbf{U}}_k$, chaque composante est reconstruite séparément, puis les états de face reviennent en variables conservatives par $\mathbf{U} = \mathbf{R}\,\mathbf{C}$. Chaque composante correspond à une famille d'ondes ($u-a$, $u$, $u+a$) : une discontinuité de contact n'apparaît que dans la deuxième, un choc que dans la première ou la troisième, et les limiteurs ou poids WENO ne mélangent plus les ondes. C'est le choix standard pour WENO sur des chocs forts. Il coûte deux produits matrice-vecteur $3 \times 3$ par cellule du stencil et par interface.
+
+### Ordres mesurés
+
+Onde isentrope (§8.10), WENO5-Z + HLLC, norme $L_1$ de $\rho$, ordre observé entre $N = 200$ et $N = 400$ :
+
+| Variables | SSP-RK3 (défaut) | RK5 |
+|:---|:---:|:---:|
+| Primitives | 2,06 | 2,00 |
+| Conservatives | 3,00 | 5,00 |
+| Caractéristiques | 3,00 | 5,00 |
+
+Deux leçons : en primitives, l'ordre 5 est perdu quel que soit l'intégrateur ; en conservatives ou caractéristiques, il faut aussi un intégrateur d'ordre 5, sinon l'erreur temporelle d'ordre 3 domine (§6.7).
+
+### Robustesse près du vide
+
+L'avantage des primitives réapparaît près du vide. Sur la double détente et le quasi-vide, à CFL 0,5, WENO3 et WENO5 passent dans 47 cas sur 48 en primitives (seul WENO5-Z + Roe échoue sur le quasi-vide), mais seulement 24 sur 48 en conservatives et 6 sur 48 en caractéristiques (combinaisons WENO3, WENO5, WENO5-Z × Rusanov, HLL, HLLC, Roe × $N$ = 100, 200). Nous n'avons pas analysé la cause en détail ; une piste est que la matrice $\mathbf{L}$ contient $1/a^2$, très grand quand la vitesse du son tend vers zéro.
+

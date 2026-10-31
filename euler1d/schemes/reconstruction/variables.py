@@ -20,7 +20,7 @@ variables, component by component:
 Whatever the variables, a face state with non-positive density or pressure
 falls back to the first-order (cell) value.
 
-See docs/05_reconstruction.md, section 5.5.
+See docs/05_reconstruction.md, section 5.6.
 """
 
 from __future__ import annotations

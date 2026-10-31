@@ -13,7 +13,8 @@ Two weight variants are available:
 - **Z** (WENO-Z, Borges et al.): uses a global smoothness indicator tau to
   restore optimal order at critical points, with eps = dx^2.
 
-The reconstruction operates on primitive variables W = (rho, u, p).
+The reconstruction operates by default on primitive variables W = (rho, u, p)
+(see ``variables.py`` for the other choices).
 
 See docs/05_reconstruction.md, section 5.3 for full derivation and analysis.
 

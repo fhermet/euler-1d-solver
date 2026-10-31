@@ -6,8 +6,8 @@ divided difference (i.e., the smoothest local interpolation). This avoids
 interpolating across discontinuities without requiring a tunable limiter
 function.
 
-The reconstruction operates on primitive variables W = (rho, u, p) and applies
-a positivity floor to density and pressure.
+The reconstruction operates by default on primitive variables W = (rho, u, p)
+(see ``variables.py`` for the other choices).
 
 Compared to MUSCL, ENO requires no parameter tuning. Compared to WENO, the
 stencil selection is binary (abrupt switching) rather than a smooth blending,

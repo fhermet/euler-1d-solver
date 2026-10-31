@@ -116,7 +116,8 @@ Dissipation |G(θ)| and dispersion φ/φ_exact curves for each scheme, obtained 
 | Two shocks | `two_shocks()` | Riemann | Strong shock collision (Toro test 4) |
 | Shu-Osher | `shu_osher()` | Mixed | Mach 3 shock in sinusoidal density |
 | Entropy wave | `entropy_wave()` | Smooth | Sinusoidal advection, order verification |
-| Acoustic wave | `acoustic_wave()` | Smooth | Isentropic perturbation, order verification |
+| Acoustic wave | `acoustic_wave()` | Smooth | Small isentropic perturbation (effectively linear) |
+| Isentropic wave | `isentropic_wave()` | Smooth | Nonlinear simple wave, order verification beyond 2 |
 
 ## Usage as a library
 
