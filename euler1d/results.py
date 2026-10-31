@@ -102,7 +102,10 @@ def compute_exact_solution(config: SimulationConfig) -> pd.DataFrame:
             x0=prob.x_discontinuity,
         )
     E = p / gas.gm1 + 0.5 * rho * u**2
-    a = sound_speed(rho, p, gas.gamma)
+    # The Mach number is undefined (NaN) in a vacuum region (rho = p = 0).
+    with np.errstate(invalid="ignore", divide="ignore"):
+        a = sound_speed(rho, p, gas.gamma)
+        mach = np.abs(u) / a
 
     return pd.DataFrame({
         "x": x,
@@ -110,7 +113,7 @@ def compute_exact_solution(config: SimulationConfig) -> pd.DataFrame:
         "u": u,
         "p": p,
         "E": E,
-        "mach": np.abs(u) / a,
+        "mach": mach,
     })
 
 

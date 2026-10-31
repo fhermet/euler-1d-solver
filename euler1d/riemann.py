@@ -417,6 +417,10 @@ def sample_riemann(
 
     At t = 0, returns the piecewise constant initial condition directly.
 
+    When the data generate a vacuum, the solution (two rarefactions separated
+    by a vacuum, Toro 2009, §4.6.3) is sampled with :func:`sample_interfaces`
+    in a frame moving at speed xi (Galilean invariance) instead of raising.
+
     See docs/02_riemann_problem.md §2.7 for the complete sampling decision
     tree and the rarefaction fan profiles.
 
@@ -449,6 +453,15 @@ def sample_riemann(
         u = np.where(x < x0, ul, ur)
         p = np.where(x < x0, pl, pr)
         return rho, u, p
+
+    if _vacuum_will_form(rhol, ul, pl, rhor, ur, pr, gamma):
+        xi = (x - x0) / t
+        n = xi.size
+        rho, u, p = sample_interfaces(
+            np.full(n, rhol), ul - xi.ravel(), np.full(n, pl),
+            np.full(n, rhor), ur - xi.ravel(), np.full(n, pr), gamma,
+        )
+        return rho.reshape(x.shape), (u + xi.ravel()).reshape(x.shape), p.reshape(x.shape)
 
     pstar, ustar, rhoL_star, rhoR_star = solve_riemann(
         rhol, ul, pl, rhor, ur, pr, gamma
