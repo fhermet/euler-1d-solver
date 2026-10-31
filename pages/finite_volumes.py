@@ -59,24 +59,52 @@ def doc_link(filename: str, label: str) -> str:
 # Settings
 # ---------------------------------------------------------------------------
 
+ss = st.session_state
+
+
+def kept(key: str, default):
+    """Current value of the widget *key*, kept in a key of its own.
+
+    Streamlit deletes a widget's key when the widget is not drawn in a run
+    (another step, another page): each widget reads its value from
+    'keep_<key>' and writes it back there when the student changes it.
+    """
+    return ss.setdefault("keep_" + key, default)
+
+
+def save(key: str) -> None:
+    ss["keep_" + key] = ss[key]
+
+
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    flux = st.selectbox("Flux numérique", FLUXES, index=FLUXES.index("hllc"),
-                        format_func=FLUX_NAMES.get, key="fv_flux")
-    rk_choice = st.selectbox("Intégrateur en temps", RK_OPTIONS, key="fv_rk")
+    flux = st.selectbox("Flux numérique", FLUXES, index=FLUXES.index(kept("fv_flux", "hllc")),
+                        format_func=FLUX_NAMES.get, key="fv_flux", on_change=save,
+                        args=("fv_flux",))
+    rk_choice = st.selectbox("Intégrateur en temps", RK_OPTIONS,
+                             index=RK_OPTIONS.index(kept("fv_rk", "Auto")), key="fv_rk",
+                             on_change=save, args=("fv_rk",))
 with c2:
-    recon = st.selectbox("Reconstruction", list(RECONSTRUCTIONS), index=1,
-                         format_func=RECONSTRUCTIONS.get, key="fv_recon")
+    recon = st.selectbox("Reconstruction", list(RECONSTRUCTIONS),
+                         index=list(RECONSTRUCTIONS).index(kept("fv_recon", "muscl")),
+                         format_func=RECONSTRUCTIONS.get, key="fv_recon", on_change=save,
+                         args=("fv_recon",))
     limiter = None
     if recon == "muscl":
         limiter = st.selectbox("Limiteur", available_limiters(),
-                               index=available_limiters().index("van-leer"), key="fv_limiter")
+                               index=available_limiters().index(kept("fv_limiter", "van-leer")),
+                               key="fv_limiter", on_change=save, args=("fv_limiter",))
 with c3:
-    var = VAR_NAMES.index(st.radio("Variable affichée", VAR_NAMES, horizontal=True, key="fv_var"))
-    n_cells = st.slider("Nombre de mailles", 8, 32, 16, key="fv_cells")
+    var = VAR_NAMES.index(st.radio("Variable affichée", VAR_NAMES, horizontal=True,
+                                   index=VAR_NAMES.index(kept("fv_var", "ρ")), key="fv_var",
+                                   on_change=save, args=("fv_var",)))
+    n_cells = st.slider("Nombre de mailles", 8, 32, kept("fv_cells", 16), key="fv_cells",
+                        on_change=save, args=("fv_cells",))
 with c4:
-    cfl = st.slider("CFL demandé", 0.1, 1.0, 0.9, step=0.05, key="fv_cfl")
-    show_exact = st.checkbox("Superposer la solution exacte", value=True, key="fv_exact")
+    cfl = st.slider("CFL demandé", 0.1, 1.0, kept("fv_cfl", 0.9), step=0.05, key="fv_cfl",
+                    on_change=save, args=("fv_cfl",))
+    show_exact = st.checkbox("Superposer la solution exacte", value=kept("fv_exact", True),
+                             key="fv_exact", on_change=save, args=("fv_exact",))
 
 scheme_key = flux if recon == "constant" else f"{recon}-{flux}"
 scheme = get_scheme(scheme_key, **({"limiter": limiter} if limiter else {}))
@@ -87,7 +115,6 @@ x = (np.arange(n_cells) + 0.5) * dx
 
 # Changing a setting restarts at t = 0 but keeps the step shown.
 settings = (scheme_key, limiter, rk, n_cells, cfl)
-ss = st.session_state
 ss.setdefault("fv_step", 1)
 if ss.get("fv_settings") != settings:
     ss.fv_settings = settings
@@ -167,11 +194,13 @@ exact = None
 if show_exact:
     exact = np.array(exact_cell_averages(config, ss.fv_t)[1:])[var]
 
-# Selections kept in range when the number of cells changes.
-if ss.get("fv_interface", 0) > n_cells:
-    ss.fv_interface = n_cells
-if ss.get("fv_cell", 0) > n_cells - 1:
-    ss.fv_cell = n_cells - 1
+# Selections: default near the discontinuity; reset there when the number
+# of cells shrinks below the selected index (not to the boundary, where the
+# Riemann problem is empty).
+if kept("fv_interface", n_cells + 1) > n_cells:
+    ss.keep_fv_interface = default_interface(UL, UR)
+if kept("fv_cell", n_cells) > n_cells - 1:
+    ss.keep_fv_cell = min(default_interface(UL, UR), n_cells - 1)
 
 if ts.cfl < cfl:
     st.caption(
@@ -198,6 +227,8 @@ if step == 1:
         "solution sur chaque maille : la hauteur du palier, dont l'aire ombrée est la "
         "quantité contenue dans la maille. Ce sont les variables conservatives (ρ, ρu, E) "
         "qui sont moyennées ; ρ, u et p affichés en sont déduits (survolez une maille). "
+        "L'aire ombrée n'est tracée que pour ρ : u et p ne sont pas des quantités "
+        "conservées, leurs paliers sont calculés à partir des moyennes. "
         "À t = 0, avec un nombre pair de mailles, la discontinuité tombe sur une face et "
         "les paliers sont exacts (avec un nombre impair, la maille centrale mélange les "
         "deux états) ; après quelques pas, ils s'étalent."
@@ -229,7 +260,8 @@ elif step == 2:
                 + doc_link("03_finite_volume.md", "§3.4"))
 
 elif step == 3:
-    k = st.slider("Interface étudiée", 0, n_cells, default_interface(UL, UR), key="fv_interface")
+    k = st.slider("Interface étudiée", 0, n_cells, ss.keep_fv_interface, key="fv_interface",
+                  on_change=save, args=("fv_interface",))
     WL = tuple(float(v) for v in conservative_to_primitive(UL[:, k], gamma))
     WR = tuple(float(v) for v in conservative_to_primitive(UR[:, k], gamma))
     model = model_waves(flux, UL[:, k], UR[:, k], config.gas)
@@ -248,18 +280,24 @@ elif step == 3:
         "l'état exact ; les solveurs approchés remplacent l'éventail par un modèle plus "
         "simple (pointillés rouges). HLL n'a pas d'onde de contact. Le rectangle a la "
         "largeur d'une maille de chaque côté et la hauteur d'un pas de temps : les ondes "
-        "ne doivent pas atteindre l'interface voisine pendant un pas (étape 6)."
+        "ne doivent pas atteindre l'interface voisine pendant un pas (étape 6). Au "
+        "démarrage de Sod, le choc exact sort pourtant du rectangle : le pas de temps est "
+        "calculé avec max(|u| + c) des mailles (1,18), plus petit que la vitesse du choc "
+        "qui va se former (1,75). C'est pourquoi on réduit souvent le CFL des premiers pas."
     )
-    try_this("passer de HLL à HLLC : la ligne du contact apparaît. Rusanov : un éventail "
-             "symétrique ±S_max. Choisir une interface en zone régulière : les ondes sont "
-             "faibles.")
+    try_this("passer de HLL à HLLC, puis cliquer « +10 pas » : la ligne du contact "
+             "apparaît. Comparer avec Rusanov (éventail ±S_max) après quelques pas : à t = 0 "
+             "sur Sod, les vitesses de Davis sont symétriques et HLL coïncide avec Rusanov. "
+             "Choisir une interface en zone régulière : les ondes sont faibles.")
     st.markdown(doc_link("02_riemann_problem.md", "Chapitre 2") + " · "
                 + doc_link("04_flux_schemes.md", "Chapitre 4 (§4.1 à §4.5)"))
 
 elif step == 4:
     component = COMPONENT_NAMES.index(st.radio(
-        "Composante du flux", COMPONENT_NAMES, horizontal=True, key="fv_component"))
-    k = ss.get("fv_interface", default_interface(UL, UR))
+        "Composante du flux", COMPONENT_NAMES, horizontal=True,
+        index=COMPONENT_NAMES.index(kept("fv_component", COMPONENT_NAMES[0])),
+        key="fv_component", on_change=save, args=("fv_component",)))
+    k = ss.keep_fv_interface
     breakdown = flux_breakdown(UL, UR, scheme, config.gas, dx, ts.dt)
     st.plotly_chart(fig_fluxes(x, dx, U, breakdown, component, var, gamma, k),
                     width="stretch")
@@ -271,15 +309,17 @@ elif step == 4:
         "**dissipation** proportionnelle au saut. Les flux décentrés diffèrent surtout par "
         "la taille de cette dissipation, la plus forte étant celle de Rusanov."
     )
-    try_this("à l'interface du contact (étape 3), comparer Rusanov, HLL et HLLC : la barre "
-             "de dissipation diminue.")
+    try_this("cliquer « +10 pas », choisir l'interface du contact à l'étape 3, puis "
+             "comparer Rusanov, HLL et HLLC : la barre de dissipation diminue. Changer de "
+             "flux ramène à t = 0 : avancer de nouveau avant de comparer (à t = 0 sur Sod, "
+             "Rusanov et HLL donnent le même flux).")
     st.markdown(doc_link("03_finite_volume.md", "§3.2") + " · "
                 + doc_link("04_flux_schemes.md", "§4.2 à §4.4"))
 
 elif step == 5:
     F = flux_breakdown(UL, UR, scheme, config.gas, dx, ts.dt).numerical
-    default_cell = min(default_interface(UL, UR), n_cells - 1)
-    i = st.slider("Maille étudiée", 0, n_cells - 1, default_cell, key="fv_cell")
+    i = st.slider("Maille étudiée", 0, n_cells - 1, ss.keep_fv_cell, key="fv_cell",
+                  on_change=save, args=("fv_cell",))
     U_new = stage_update(U, F, ts.dt, dx)
     st.plotly_chart(fig_update(x, dx, U, U_new, F, i, var, gamma), width="stretch")
     st.latex(r"\bar U_i^{+} = \bar U_i - \frac{\Delta t}{\Delta x}"
@@ -299,9 +339,10 @@ elif step == 5:
         "La moyenne d'une maille change de la différence entre ce qui entre et ce qui "
         "sort. Sommée sur le domaine, cette différence se simplifie d'une interface à "
         "l'autre : la variation des totaux vient **uniquement des bords**, les deux "
-        "colonnes du second tableau sont égales. Sur Sod, la masse totale ne change pas "
-        "(u = 0 aux bords) ; la quantité de mouvement change, car les pressions 1 et 0,1 "
-        "des bords agissent comme des forces. « Conservatif » ne veut pas dire que rien "
+        "colonnes du second tableau sont égales. Sur Sod, tant que les ondes n'ont pas "
+        "atteint les bords, la masse totale ne change pas (u = 0 aux bords) et la quantité "
+        "de mouvement change, car les pressions 1 et 0,1 des bords agissent comme des "
+        "forces. « Conservatif » ne veut pas dire que rien "
         "ne change."
     )
     try_this("choisir une maille loin de la discontinuité : ses moyennes ne bougent pas.")

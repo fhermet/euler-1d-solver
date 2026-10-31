@@ -83,3 +83,55 @@ def test_selection_clamped_when_mesh_shrinks():
     at.slider(key="fv_cells").set_value(8).run()
     assert not at.exception, [e.value for e in at.exception]
     assert at.session_state["fv_interface"] <= 8
+
+
+def test_interface_selection_survives_other_steps():
+    at = _app()
+    at.button(key="fv_goto_3").click().run()
+    at.slider(key="fv_interface").set_value(3).run()
+    at.button(key="fv_goto_4").click().run()
+    at.radio(key="fv_component").set_value("énergie").run()
+    at.button(key="fv_goto_3").click().run()
+    assert at.slider(key="fv_interface").value == 3
+
+
+def test_settings_survive_a_visit_to_another_page():
+    at = _app()
+    at.selectbox(key="fv_flux").select("hll").run()
+    at.button(key="fv_ten_btn").click().run()
+    at.switch_page("pages/solver.py").run()
+    at.switch_page("pages/finite_volumes.py").run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.session_state["fv_flux"] == "hll"
+    assert at.session_state["fv_n"] == 10
+
+
+def test_shrinking_the_mesh_does_not_select_the_boundary():
+    at = _app()
+    at.slider(key="fv_cells").set_value(32).run()
+    at.button(key="fv_goto_3").click().run()
+    at.slider(key="fv_interface").set_value(30).run()
+    at.slider(key="fv_cells").set_value(8).run()
+    assert not at.exception
+    assert 0 < at.slider(key="fv_interface").value < 8
+    assert not at.warning or all("Session State" not in w.value for w in at.warning)
+
+
+def test_flux_comparison_hints_ask_to_advance_first():
+    # At t = 0 on Sod, Rusanov and HLL give the same flux (S_L = -S_R).
+    at = _app()
+    for step in (3, 4):
+        at.button(key=f"fv_goto_{step}").click().run()
+        assert any("+10 pas" in i.value for i in at.info), step
+
+
+def test_mass_statement_is_limited_to_before_waves_reach_the_boundaries():
+    at = _app()
+    at.button(key="fv_goto_5").click().run()
+    assert any("atteint les bords" in m.value for m in at.markdown)
+
+
+def test_cfl_box_statement_explains_the_start_up_shock():
+    at = _app()
+    at.button(key="fv_goto_3").click().run()
+    assert any("démarrage" in m.value for m in at.markdown)
