@@ -34,7 +34,11 @@ import numpy as np
 
 from euler1d.boundary import apply_boundary_conditions
 from euler1d.config import RiemannProblem, SimulationConfig, SmoothProblem
-from euler1d.physics import max_wave_speed, primitive_to_conservative
+from euler1d.physics import (
+    conservative_to_primitive,
+    max_wave_speed,
+    primitive_to_conservative,
+)
 from euler1d.schemes.base import NumericalScheme
 
 
@@ -65,8 +69,9 @@ class SolverResult:
         benchmarking scheme performance.
     status : str
         ``"ok"`` if ``t_final`` was reached, ``"diverged"`` if a non-finite
-        state appeared.  On divergence the last snapshot is the last finite
-        state, recorded at the time it was reached.
+        state or a non-positive density or pressure appeared.  On divergence
+        the last snapshot is the last physical state, recorded at the time it
+        was reached.
     floor_events : int
         Number of cell corrections made by the positivity floor.  Non-zero
         means the scheme alone produced a non-physical state.
@@ -198,6 +203,7 @@ def run_simulation(
     n_snapshots: int = 1,
     progress_callback: Callable[[float], None] | None = None,
     time_integrator: str | None = None,
+    positivity_floor: bool = False,
 ) -> SolverResult:
     """Run the Euler 1D simulation using the method of lines.
 
@@ -240,6 +246,12 @@ def run_simulation(
     time_integrator : str or None, optional
         Explicit RK method to use (``"RK1"`` .. ``"RK5"``).  If None the
         scheme's default integrator is used.
+    positivity_floor : bool, optional
+        If True, clip density and internal energy to a small floor after each
+        step so that schemes without positivity guarantee keep running.  The
+        correction is not conservative; it is counted in ``floor_events`` and
+        ``floor_energy``.  Off by default so that each scheme shows its own
+        behaviour, failure included.
 
     Returns
     -------
@@ -296,7 +308,7 @@ def run_simulation(
         result.status = "diverged"
         warnings.warn(
             f"Solution diverged at t={t:.6e} ({reason}). "
-            f"Returning the last finite state.",
+            f"Returning the last physical state.",
             RuntimeWarning,
             stacklevel=3,
         )
@@ -327,12 +339,14 @@ def run_simulation(
             diverge("NaN/Inf in the updated state")
             break
 
-        # Positivity floor: keeps schemes without positivity guarantee
-        # running, at the price of a non-conservative correction that is
-        # counted and reported below.
-        n_cells, energy = _apply_positivity_floor(U_new)
-        result.floor_events += n_cells
-        result.floor_energy += energy * dx
+        if positivity_floor:
+            n_cells, energy = _apply_positivity_floor(U_new)
+            result.floor_events += n_cells
+            result.floor_energy += energy * dx
+        rho_new, _, p_new = conservative_to_primitive(U_new, gas.gamma)
+        if (rho_new <= 0.0).any() or (p_new <= 0.0).any():
+            diverge("negative density or pressure")
+            break
         U = U_new
 
         t += dt
@@ -349,7 +363,7 @@ def run_simulation(
         if progress_callback is not None:
             progress_callback(min(t / t_final, 1.0))
 
-    # On divergence, or if no snapshot was recorded, end with the last finite state
+    # On divergence, or if no snapshot was recorded, end with the last physical state
     if result.status == "diverged" or not result.snapshots:
         result.times.append(t)
         result.snapshots.append(U.copy())

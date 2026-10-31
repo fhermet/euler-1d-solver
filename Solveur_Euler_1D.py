@@ -315,6 +315,7 @@ def cached_simulate(
     limiter: str | None,
     n_snapshots: int,
     time_integrator: str = "Auto",
+    positivity_floor: bool = False,
 ) -> tuple[list, list, float, str, dict]:
     """Run a simulation.
 
@@ -325,7 +326,10 @@ def cached_simulate(
     kwargs = {"limiter": limiter} if limiter and scheme_name.startswith("muscl") else {}
     scheme = get_scheme(scheme_name, **kwargs)
     rk = None if time_integrator == "Auto" else time_integrator
-    result = run_simulation(config, scheme, n_snapshots=n_snapshots, time_integrator=rk)
+    result = run_simulation(
+        config, scheme, n_snapshots=n_snapshots, time_integrator=rk,
+        positivity_floor=positivity_floor,
+    )
     snapshots = [s.tolist() for s in result.snapshots]
     diagnostics = {
         "status": result.status,
@@ -551,6 +555,16 @@ with st.sidebar:
             st.info("Gamma fixed at 1.4 for smooth cases")
         else:
             gamma = st.slider("Gamma", 1.1, 2.0, 1.4, step=0.05)
+        positivity_floor = st.checkbox(
+            "Positivity floor",
+            value=False,
+            help=(
+                "Clip negative density or pressure after each time step so "
+                "that fragile schemes keep running. The correction is not "
+                "conservative and is reported for each scheme. Off: each "
+                "scheme shows its own behaviour, failure included."
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -587,6 +601,7 @@ with tab1:
             for sname, limiter, ti in selected:
                 snapshots, times, wall_time, display_name, diag = cached_simulate(
                     test_case_name, n_cells, cfl, gamma, sname, limiter, 1, ti,
+                    positivity_floor,
                 )
                 report_diagnostics(display_name, diag)
                 if diag["status"] == "diverged":
@@ -628,8 +643,16 @@ with tab1:
                 for sname, limiter, ti in selected:
                     df = cached_convergence(test_case_name, cfl, gamma, sname, limiter, n_cells_list, ti)
                     if df.empty:
+                        st.warning(f"**{sname}**: diverged at every resolution.")
                         continue
                     display_name = df["scheme"].iloc[0] if len(df) > 0 else sname
+                    missing = sorted(set(n_cells_list) - set(df["n_cells"]))
+                    if missing:
+                        st.warning(
+                            f"**{display_name}**: diverged for N = "
+                            f"{', '.join(map(str, missing))}; these resolutions "
+                            f"are left out of the order estimate."
+                        )
                     conv_dfs.append((display_name, df))
 
                     var_data = df[df["variable"] == conv_var]
@@ -664,7 +687,7 @@ with tab4:
     with st.spinner("Simulation..."):
         snapshots, snap_times, wt, dn, diag = cached_simulate(
             test_case_name, n_cells, cfl, gamma, anim_scheme,
-            anim_limiter, n_snapshots, anim_ti,
+            anim_limiter, n_snapshots, anim_ti, positivity_floor,
         )
 
     # On divergence the animation still runs up to the last finite state.

@@ -233,7 +233,8 @@ def convergence_study(
         config = make_config(n)
         exact = compute_exact_solution(config)
         result = run_simulation(config, scheme, time_integrator=time_integrator)
-        if not result.snapshots:
+        # A diverged run has no solution at t_final: leave this resolution out.
+        if result.status != "ok":
             continue
         errs = compute_errors(result, exact)
         for var in variables:
