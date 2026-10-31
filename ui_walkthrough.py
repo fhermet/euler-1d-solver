@@ -146,7 +146,8 @@ def fig_screen_3(u_before: np.ndarray, u_after: np.ndarray, cell: int, cfl: floa
     n = len(u_before)
     dx = 1.0 / n
     left, right = cell * dx, (cell + 1) * dx
-    f_in, f_out = u_before[cell - 1], u_before[cell]   # upwind, a = 1
+    # Amounts moved during the step: nu * a u* (upwind, a = 1, nu = a dt / dx).
+    f_in, f_out = cfl * u_before[cell - 1], cfl * u_before[cell]
     fig = go.Figure([_plateaus(u_before, "avant le pas", color=GREY, width=2, dash="dash"),
                      _plateaus(u_after, "après le pas")])
     fig.add_vrect(x0=left, x1=right, fillcolor=RED, opacity=0.12, line_width=0)
@@ -154,7 +155,8 @@ def fig_screen_3(u_before: np.ndarray, u_after: np.ndarray, cell: int, cfl: floa
     _flux_arrow(fig, left, y_arrow, 1.2 * dx, f"entre {_fr(f_in)}", COLORS[2], "right")
     _flux_arrow(fig, right, y_arrow, 1.2 * dx, f"sort {_fr(f_out)}", COLORS[3], "left")
     bubble(fig, 0.5 * (left + right), u_after[cell],
-           f"moyenne : {_fr(u_before[cell])} → {_fr(u_after[cell])}", ax=110, ay=40)
+           f"{_fr(u_before[cell])} + {_fr(f_in)} − {_fr(f_out)} = {_fr(u_after[cell])}",
+           ax=110, ay=40)
     centre = 0.5 * (left + right)
     return _layout(fig, x_range=(centre - 6.5 * dx, centre + 6.5 * dx))
 
@@ -211,7 +213,9 @@ def fig_screen_6(u: np.ndarray, slope: str, t: float) -> go.Figure:
     """Order 1 against a slope in each cell, with or without a limiter, at time t."""
     n = len(u)
     fig = go.Figure([_exact_curve(t), _plateaus(u, SLOPE_LABELS[slope])])
-    if slope == "fromm":
+    if t == 0.0:
+        _inner_bubble(fig, _front(0.0), 0.5, "état initial : faites avancer t")
+    elif slope == "fromm":
         i = int(np.argmax(u))
         _inner_bubble(fig, (i + 0.5) / n, _clip(u[i]), "dépassements", ay=-50)
     elif slope == "order1":

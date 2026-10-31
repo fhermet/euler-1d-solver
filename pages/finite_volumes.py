@@ -161,9 +161,10 @@ def screen_3() -> None:
     before = advect(U0, "upwind", CFL_SCREEN_3, n).u
     after = advect(before, "upwind", CFL_SCREEN_3, 1).u
     show(fig_screen_3(before, after, cell, CFL_SCREEN_3))
-    explain("La moyenne change de ce qui entre moins ce qui sort, pendant Δt. Ce qui sort "
-            "d'une maille entre dans la voisine.")
-    try_this("faites un pas, puis un autre : le niveau de la maille rose monte.")
+    explain("Pendant Δt, la moyenne gagne ce qui entre et perd ce qui sort (le flux × Δt/Δx, "
+            "ici × 0,8). Ce qui sort d'une maille entre dans la voisine.")
+    try_this("faites plusieurs pas : la maille rose se remplit, puis se vide quand le créneau "
+             "est passé.")
 
 
 def screen_4() -> None:
@@ -188,7 +189,7 @@ def screen_5() -> None:
     show(fig_screen_5(advect(U0, "upwind", cfl, n), cfl, n))
     explain("Pendant un pas, l'onde parcourt CFL mailles. Au-delà d'une maille, le schéma va "
             "chercher une information qu'il n'a pas.")
-    try_this("réglez le CFL à 1, puis à 1,1.")
+    try_this("réglez le CFL à 1, puis à 1,1 avec 40 pas.")
 
 
 def screen_6() -> None:

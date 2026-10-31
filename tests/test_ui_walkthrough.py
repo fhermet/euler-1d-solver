@@ -60,3 +60,17 @@ def test_exploded_run_is_readable():
 def test_zero_steps_shows_initial_state(make):
     fig = make()
     assert len(_bubbles(fig)) == 1
+
+
+def test_screen_3_numbers_add_up():
+    # What enters and leaves during the step is nu * a u*, nu = 0.8.
+    after = advect(U0, "upwind", 0.8, 1).u
+    fig = fig_screen_3(U0, after, 15, 0.8)
+    labels = [a.text for a in fig.layout.annotations if not a.showarrow]
+    assert "entre 0,80" in labels and "sort 0,16" in labels
+    assert _bubbles(fig)[0].text == "0,20 + 0,80 − 0,16 = 0,84"
+
+
+@pytest.mark.parametrize("slope", ["order1", "fromm", "minmod", "van-leer"])
+def test_screen_6_initial_state(slope):
+    assert "état initial" in _bubbles(fig_screen_6(U0, slope, 0.0))[0].text

@@ -119,3 +119,24 @@ def test_no_streamlit_warning():
     for screen in range(1, 9):
         _goto(at, screen)
         assert not at.warning, [w.value for w in at.warning]
+
+
+def test_screen3_hint_says_the_cell_empties():
+    at = _app()
+    _goto(at, 3)
+    assert any("se vide" in i.value for i in at.info)
+
+
+def test_screen5_hint_leads_to_an_explosion():
+    at = _app()
+    _goto(at, 5)
+    assert any("40 pas" in i.value for i in at.info)
+    at.slider(key="fv_cfl5").set_value(1.1).run()
+    at.slider(key="fv_n5").set_value(40).run()
+    assert "explose" in _bubble_text(at)
+
+
+def _bubble_text(at):
+    spec = json.loads(at.get("plotly_chart")[0].proto.spec)
+    [text] = [a["text"] for a in spec["layout"]["annotations"] if a.get("showarrow")]
+    return text
