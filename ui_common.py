@@ -58,6 +58,74 @@ CENTERED_SCHEMES = {
     "jst": "JST (order 2)",
 }
 
+DOCS_URL = "https://github.com/fhermet/euler-1d-solver/blob/main/docs/"
+
+DOC_CHAPTERS = [
+    ("1. Euler equations", "01_euler_equations.md"),
+    ("2. Riemann problem, entropy", "02_riemann_problem.md"),
+    ("3. Finite volumes", "03_finite_volume.md"),
+    ("4. Numerical fluxes", "04_flux_schemes.md"),
+    ("5. Reconstructions (MUSCL, ENO, WENO)", "05_reconstruction.md"),
+    ("6. Time integration, CFL", "06_time_integration.md"),
+    ("7. Fourier analysis", "07_fourier_analysis.md"),
+    ("8. Test cases, convergence", "08_test_cases.md"),
+]
+
+GLOSSARY = [
+    ("CFL", "Courant number Δt·max(|u|+c)/Δx. The solver caps it per scheme: "
+     "1 for first-order schemes, 0.5 for MUSCL, ENO and WENO (§6.1)."),
+    ("Effective CFL", "The CFL actually used, shown in the legends: the requested "
+     "one, capped by the scheme's limit."),
+    ("Auto (time integration)", "The scheme's default Runge-Kutta method: RK1 for "
+     "first-order schemes, RK2 for MUSCL and ENO2, SSP-RK3 for WENO, RK4 for JST. "
+     "Lax-Wendroff always uses RK1: its flux embeds the time step (§6.7)."),
+    ("SSP", "Strong stability preserving: a Runge-Kutta method made of forward "
+     "Euler steps, which keeps the non-oscillation property of the spatial scheme "
+     "under the same CFL bound. RK1, Heun (RK2) and SSP-RK3 are SSP; RK4 and RK5 "
+     "are not (§6.4)."),
+    ("TVD", "Total variation diminishing: the scheme creates no new extremum. "
+     "First-order upwind schemes and limited MUSCL (within its CFL bound) are TVD; "
+     "ENO and WENO are only essentially non-oscillatory (§5.1 to §5.4)."),
+    ("Order of convergence", "Slope of the error versus Δx in log-log scale. "
+     "Expected only on smooth solutions; on discontinuous ones the L1 rate is "
+     "about 1 or less whatever the scheme (§8.12)."),
+    ("L1, L2, L∞", "Error norms: integral of |error|, root mean square, maximum. "
+     "Near a discontinuity L∞ does not converge (§8.12)."),
+    ("Local order", "Order between two successive meshes; it settles once the "
+     "asymptotic regime is reached."),
+    ("Exact (round-off)", "Errors below 1e-12: the scheme reproduces the solution, "
+     "or the variable is constant. No order can be measured."),
+    ("Reconstructed variables", "Variables on which MUSCL, ENO and WENO build the "
+     "interface states: primitive (default, robust, order ≤ 2 on nonlinear flows), "
+     "conservative or characteristic (keep the formal order) (§5.6)."),
+    ("Positivity floor", "Option that clips negative density or pressure after "
+     "each step. Not conservative, off by default, reported when used."),
+    ("Diverged", "The run produced a negative density or pressure and stopped; "
+     "the message says whether a smaller time step helps."),
+    ("Entropy fix", "Correction of Roe's scheme at transonic rarefactions, "
+     "without which it can keep an expansion shock (§2.2, case 'Sonic "
+     "rarefaction')."),
+    ("Expansion shock", "A discontinuous weak solution in place of a rarefaction: "
+     "it satisfies Rankine-Hugoniot but decreases entropy, so it is not physical "
+     "(§2.2)."),
+    ("Reference solution", "Shu-Osher has no exact solution; its black curve is "
+     "a WENO5-Z computation on 2000 cells."),
+    ("σ (Fourier page)", "Courant number of the analysed wave, λΔt/Δx; smaller "
+     "than the CFL except for the fastest wave (§7.5)."),
+]
+
+
+def documentation_sidebar() -> None:
+    """Links to the theory chapters and a glossary of the terms used in the app."""
+    with st.expander("Documentation (in French)"):
+        for title, filename in DOC_CHAPTERS:
+            st.markdown(f"- [{title}]({DOCS_URL}{filename})")
+        st.caption("'§x.y' in the messages refers to these chapters.")
+    with st.expander("Glossary"):
+        for term, definition in GLOSSARY:
+            st.markdown(f"**{term}**: {definition}")
+
+
 RK_OPTIONS = ["Auto", "RK1", "RK2", "RK3", "RK4", "RK5"]
 
 _RK_DEFAULTS = {

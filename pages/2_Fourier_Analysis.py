@@ -15,6 +15,7 @@ from ui_common import (
     MARKERS,
     THESIS_LAYOUT,
     _LEGEND_COMMON,
+    documentation_sidebar,
     scheme_selector_multi,
     thesis_axis,
 )
@@ -29,6 +30,9 @@ st.markdown(
     "$|G| < 1$ = dissipation, $|G| > 1$ = instability, "
     "$\\phi_{num}/\\phi_{exact} \\neq 1$ = dispersion error."
 )
+
+with st.sidebar:
+    documentation_sidebar()
 
 selected = scheme_selector_multi("fourier")
 

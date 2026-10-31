@@ -34,6 +34,7 @@ from ui_common import (
     MARKERS,
     THESIS_LAYOUT,
     _LEGEND_COMMON,
+    documentation_sidebar,
     scheme_selector_multi,
     scheme_selector_single,
     thesis_axis,
@@ -627,6 +628,7 @@ st.set_page_config(page_title="1D Euler Solver", layout="wide")
 st.title("1D Euler Solver — Interactive interface")
 
 with st.sidebar:
+    documentation_sidebar()
     st.header("Configuration")
     test_case_name = st.selectbox("Test case", list(TEST_CASES.keys()))
     is_smooth = test_case_name in SMOOTH_CASES
