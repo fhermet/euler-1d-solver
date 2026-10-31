@@ -32,6 +32,19 @@ from euler1d.physics import compute_flux, conservative_to_primitive, sound_speed
 from euler1d.schemes.base import NumericalScheme
 
 
+def davis_speeds(UL: np.ndarray, UR: np.ndarray, gamma: float) -> tuple[np.ndarray, np.ndarray]:
+    """Davis estimates of the slowest and fastest wave speeds (S_L, S_R).
+
+    S_L = min(u_L - a_L, u_R - a_R), S_R = max(u_L + a_L, u_R + a_R).
+    Shared by HLL and HLLC, and drawn by the finite-volume walkthrough.
+    """
+    rhoL, uL, pL = conservative_to_primitive(UL, gamma)
+    rhoR, uR, pR = conservative_to_primitive(UR, gamma)
+    aL = sound_speed(rhoL, pL, gamma)
+    aR = sound_speed(rhoR, pR, gamma)
+    return np.minimum(uL - aL, uR - aR), np.maximum(uL + aL, uR + aR)
+
+
 class HLL(NumericalScheme):
     """HLL (Harten-Lax-van Leer) two-wave approximate Riemann solver.
 
@@ -63,14 +76,7 @@ class HLL(NumericalScheme):
         FL = compute_flux(UL, gas.gamma)
         FR = compute_flux(UR, gas.gamma)
 
-        rhoL, uL, pL = conservative_to_primitive(UL, gas.gamma)
-        rhoR, uR, pR = conservative_to_primitive(UR, gas.gamma)
-        aL = sound_speed(rhoL, pL, gas.gamma)
-        aR = sound_speed(rhoR, pR, gas.gamma)
-
-        # Davis wave speed estimates
-        SL = np.minimum(uL - aL, uR - aR)
-        SR = np.maximum(uL + aL, uR + aR)
+        SL, SR = davis_speeds(UL, UR, gas.gamma)
 
         F = np.empty_like(FL)
 

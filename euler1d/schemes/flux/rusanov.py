@@ -33,6 +33,15 @@ from euler1d.physics import compute_flux, conservative_to_primitive, sound_speed
 from euler1d.schemes.base import NumericalScheme
 
 
+def max_speed(UL: np.ndarray, UR: np.ndarray, gamma: float) -> np.ndarray:
+    """Largest local wave speed S_max = max(|u_L| + a_L, |u_R| + a_R)."""
+    rhoL, uL, pL = conservative_to_primitive(UL, gamma)
+    rhoR, uR, pR = conservative_to_primitive(UR, gamma)
+    return np.maximum(
+        np.abs(uL) + sound_speed(rhoL, pL, gamma), np.abs(uR) + sound_speed(rhoR, pR, gamma)
+    )
+
+
 class Rusanov(NumericalScheme):
     """Rusanov (local Lax-Friedrichs) approximate Riemann solver.
 
@@ -64,10 +73,5 @@ class Rusanov(NumericalScheme):
         FL = compute_flux(UL, gas.gamma)
         FR = compute_flux(UR, gas.gamma)
 
-        rhoL, uL, pL = conservative_to_primitive(UL, gas.gamma)
-        rhoR, uR, pR = conservative_to_primitive(UR, gas.gamma)
-        aL = sound_speed(rhoL, pL, gas.gamma)
-        aR = sound_speed(rhoR, pR, gas.gamma)
-
-        S_max = np.maximum(np.abs(uL) + aL, np.abs(uR) + aR)
+        S_max = max_speed(UL, UR, gas.gamma)
         return 0.5 * (FL + FR) - 0.5 * S_max[np.newaxis, :] * (UR - UL)
