@@ -448,17 +448,17 @@ Les moyennes $\bar{\mathbf{U}}_i$ sont exactes : l'ordre formel est conservé. E
 
 ### Ordres mesurés
 
-Onde isentrope (§8.10), WENO5-Z + HLLC, norme $L_1$ de $\rho$, ordre observé entre $N = 200$ et $N = 400$ :
+Onde isentrope (§8.10), WENO5-Z + HLLC, CFL 0,5, norme $L_1$ de $\rho$, ordre observé entre $N = 200$ et $N = 400$ :
 
 | Variables | SSP-RK3 (défaut) | RK5 |
 |:---|:---:|:---:|
-| Primitives | 2,06 | 2,00 |
-| Conservatives | 3,00 | 5,00 |
-| Caractéristiques | 3,00 | 5,00 |
+| Primitives | 2,01 | 2,00 |
+| Conservatives | 3,01 | 5,00 |
+| Caractéristiques | 3,01 | 5,00 |
 
 Deux leçons : en primitives, l'ordre 5 est perdu quel que soit l'intégrateur ; en conservatives ou caractéristiques, il faut aussi un intégrateur d'ordre 5, sinon l'erreur temporelle d'ordre 3 domine (§6.7).
 
 ### Robustesse près du vide
 
-L'avantage des primitives réapparaît près du vide. Sur la double détente et le quasi-vide, à CFL 0,5, WENO3 et WENO5 passent dans 47 cas sur 48 en primitives (seul WENO5-Z + Roe échoue sur le quasi-vide), mais seulement 24 sur 48 en conservatives et 6 sur 48 en caractéristiques (combinaisons WENO3, WENO5, WENO5-Z × Rusanov, HLL, HLLC, Roe × $N$ = 100, 200). Nous n'avons pas analysé la cause en détail ; une piste est que la matrice $\mathbf{L}$ contient $1/a^2$, très grand quand la vitesse du son tend vers zéro.
+L'avantage des primitives réapparaît près du vide. Sur la double détente et le quasi-vide (CFL 0,5), WENO3 et WENO5 passent dans 47 cas sur 48 en primitives (seul WENO5-Z + Roe échoue sur le quasi-vide), mais seulement 24 sur 48 en conservatives et 6 sur 48 en caractéristiques (combinaisons WENO3, WENO5, WENO5-Z × Rusanov, HLL, HLLC, Roe × $N$ = 100, 200). Nous n'avons pas analysé la cause en détail ; une piste est que la matrice $\mathbf{L}$ contient $1/a^2$, très grand quand la vitesse du son tend vers zéro.
 

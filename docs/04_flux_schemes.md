@@ -742,10 +742,10 @@ Le coefficient des polynômes de pression devient $\alpha = \frac{3}{16}(-4 + 5 
 
 **Choix de la coupure $M_\infty$.** Sans coupure, $f_a \to 0$ dans une zone au repos et le terme $K_p / f_a$ diverge. Liou prend pour $M_\infty$ le Mach de référence de l'écoulement. Avec un schéma explicite, ce choix fixe aussi la raideur :
 
-| $M_\infty$ | Effet | Cas qui divergent (ordre 1 et MUSCL, CFL 0,9) |
+| $M_\infty$ | Effet | Cas qui divergent (ordre 1 à CFL 0,9, MUSCL à CFL 0,5) |
 |:---:|:---|:---|
-| 1 | $f_a = 1$, pas d'adaptation bas Mach ; dissipation totale trop forte pour Euler explicite | onde acoustique |
-| 0,5 (défaut) | compromis | aucun (jusqu'à CFL 0,8 ; à CFL 1, l'onde acoustique) |
+| 1 | $f_a = 1$, pas d'adaptation bas Mach ; dissipation totale trop forte pour Euler explicite | onde acoustique (ordre 1) |
+| 0,5 (défaut) | compromis | aucun (à l'ordre 1 : jusqu'à CFL 0,8 ; à CFL 1, l'onde acoustique) |
 | 0,1 | $K_p / f_a$ trop grand, schéma raide | Sod, onde acoustique |
 
 C'est une illustration concrète d'un compromis général : un schéma conçu pour les bas Mach (préconditionnement) est fait pour l'implicite ou le pas de temps dual, et se paie en pas de temps quand on l'intègre explicitement.

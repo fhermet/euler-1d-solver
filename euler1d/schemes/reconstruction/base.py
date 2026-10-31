@@ -49,6 +49,17 @@ class ReconstructedScheme(NumericalScheme):
         suffix = "" if self._variables == "primitive" else f" [{self._variables}]"
         return f"{self.label}-{self._riemann.name}{suffix}"
 
+    @property
+    def max_cfl(self) -> float:
+        """TVD limit of a limited reconstruction in the method of lines.
+
+        With a limiter bounded by 2 (Sweby region), the semi-discrete scheme
+        is TVD under forward Euler for CFL <= 1/2 (Harten's lemma), and SSP
+        Runge-Kutta methods keep this bound.  Above it, MUSCL on the
+        Shu-Osher case amplifies a 1e-14 perturbation up to 0.4 at CFL 0.9.
+        """
+        return 0.5
+
     def reconstruct(
         self, U: np.ndarray, gamma: float, dx: float
     ) -> tuple[np.ndarray, np.ndarray]:

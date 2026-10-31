@@ -78,6 +78,9 @@ class SolverResult:
         means the scheme alone produced a non-physical state.
     floor_energy : float
         Total energy (integrated over the domain) injected by the floor.
+    cfl : float
+        CFL number actually used: the requested one, capped by the scheme's
+        ``max_cfl``.
     """
 
     x: np.ndarray
@@ -89,6 +92,7 @@ class SolverResult:
     status: str = "ok"
     floor_events: int = 0
     floor_energy: float = 0.0
+    cfl: float = 0.0
 
 
 def _compute_rhs(
@@ -321,6 +325,8 @@ def run_simulation(
     snapshot_times.add(t_final)
 
     result = SolverResult(x=x, scheme_name=scheme.name, config=config)
+    cfl = min(tc.cfl, scheme.max_cfl)
+    result.cfl = cfl
 
     t_start = time.perf_counter()
 
@@ -346,16 +352,17 @@ def run_simulation(
         if tc.dt_fixed is not None:
             dt = tc.dt_fixed
             cfl_eff = dt * s_max / dx
-            if cfl_eff > 1.0 and not cfl_warned:
+            if cfl_eff > scheme.max_cfl and not cfl_warned:
                 cfl_warned = True
                 warnings.warn(
-                    f"dt_fixed={dt:.3e} gives CFL={cfl_eff:.2f} > 1 at t={t:.3e}: "
-                    f"the explicit scheme is expected to be unstable.",
+                    f"dt_fixed={dt:.3e} gives CFL={cfl_eff:.2f} at t={t:.3e}, above "
+                    f"the limit {scheme.max_cfl} of {scheme.name}: stability is "
+                    f"not guaranteed.",
                     RuntimeWarning,
                     stacklevel=2,
                 )
         else:
-            dt = tc.cfl * dx / s_max
+            dt = cfl * dx / s_max
 
         # Don't overshoot.  A flux whose dissipation scales with dx/dt
         # (Lax-Friedrichs) keeps the nominal step: with the shortened one, a

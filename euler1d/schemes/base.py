@@ -77,6 +77,15 @@ class NumericalScheme(ABC):
     def n_ghost(self) -> int:
         return 1
 
+    @property
+    def max_cfl(self) -> float:
+        """Largest CFL number for which the scheme is guaranteed stable.
+
+        The solver uses min(requested CFL, max_cfl).  First-order schemes are
+        stable up to 1.
+        """
+        return 1.0
+
     @abstractmethod
     def compute_riemann_flux(
         self, UL: np.ndarray, UR: np.ndarray, gas: GasProperties, dx: float, dt: float

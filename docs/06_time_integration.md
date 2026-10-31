@@ -40,6 +40,18 @@ Dans le solveur, le pas de temps est **recalculé à chaque itération** :
 
 Ce recalcul est essentiel car la vitesse maximale évolue au cours de la simulation (notamment lors du passage d'un choc).
 
+### La limite dépend du schéma
+
+La condition CFL $\leq 1$ est une condition **nécessaire**. Elle suffit pour les schémas d'ordre 1, mais pas pour une reconstruction limitée intégrée en méthode des lignes. Avec un limiteur borné par 2 (région de Sweby, §5.1), le lemme de Harten garantit que le schéma semi-discret est TVD sous Euler explicite pour
+
+$$\text{CFL} \leq \frac{1}{2}$$
+
+et les méthodes Runge-Kutta SSP (Heun, SSP-RK3) conservent cette borne (c'est la définition du coefficient SSP $c = 1$).
+
+Au-delà, la stabilité n'est plus garantie. Le défaut est discret : sur le tube de Sod, la solution à CFL 0,9 reste correcte. Mais sur le cas de Shu-Osher, MUSCL-HLLC (minmod) à CFL 0,9 amplifie une perturbation relative de $10^{-14}$ de l'état initial jusqu'à un écart de 0,4 sur la solution finale : des modes parasites croissent d'environ 14 % par pas dans la zone post-choc, et la courbe affichée dépend du bruit d'arrondi. À CFL 0,5, le même écart reste à $5 \times 10^{-13}$.
+
+Chaque schéma déclare donc sa limite (`max_cfl`) : 1 pour les schémas d'ordre 1, 0,5 pour MUSCL, ENO et WENO. Le solveur utilise $\min(\text{CFL demandé}, \texttt{max\_cfl})$ et l'interface indique le CFL effectivement utilisé. Les cas tests sont réglés à CFL 0,9 : les schémas d'ordre 1 l'utilisent tel quel, les reconstructions passent à 0,5.
+
 ---
 
 ## §6.2 Euler explicite (RK1)

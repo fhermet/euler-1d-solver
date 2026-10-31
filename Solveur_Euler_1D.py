@@ -369,12 +369,20 @@ def cached_simulate(
         "t_end": result.times[-1],
         "floor_events": result.floor_events,
         "floor_energy": result.floor_energy,
+        "cfl": result.cfl,
+        "cfl_requested": config.time.cfl,
     }
     return snapshots, result.times, result.wall_time, scheme.name, diagnostics
 
 
 def report_diagnostics(display_name: str, diagnostics: dict) -> None:
-    """Tell the user when a run diverged or was patched by the positivity floor."""
+    """Tell the user when a run diverged, was patched, or ran at a reduced CFL."""
+    if diagnostics["cfl"] < diagnostics["cfl_requested"]:
+        st.caption(
+            f"**{display_name}**: CFL {diagnostics['cfl']:g} instead of "
+            f"{diagnostics['cfl_requested']:g}. A limited reconstruction is only "
+            f"guaranteed stable (TVD) up to CFL 0.5."
+        )
     if diagnostics["status"] == "diverged":
         st.error(
             f"**{display_name}**: diverged at t = {diagnostics['t_end']:.4g} "

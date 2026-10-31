@@ -127,15 +127,12 @@ def double_rarefaction(n_cells: int = 200) -> SimulationConfig:
     Returns
     -------
     SimulationConfig
-        Complete configuration with transmissive BC, t_final=0.15, CFL 0.5,
-        gamma=1.4.
+        Complete configuration with transmissive BC, t_final=0.15, gamma=1.4.
     """
     return SimulationConfig(
         gas=GasProperties(gamma=1.4),
         mesh=MeshConfig(x_min=0.0, x_max=1.0, n_cells=n_cells),
-        # CFL 0.5: high-order schemes produce negative pressure near
-        # vacuum at CFL 0.9 (see docs/08_test_cases.md).
-        time=TimeConfig(t_final=0.15, cfl=0.5),
+        time=TimeConfig(t_final=0.15, cfl=0.9),
         problem=RiemannProblem(
             left=PrimitiveState(rho=1.0, u=-2.0, p=0.4),
             right=PrimitiveState(rho=1.0, u=2.0, p=0.4),
@@ -300,15 +297,12 @@ def near_vacuum(n_cells: int = 200) -> SimulationConfig:
     Returns
     -------
     SimulationConfig
-        Complete configuration with transmissive BC, t_final=0.1, CFL 0.5,
-        gamma=1.4.
+        Complete configuration with transmissive BC, t_final=0.1, gamma=1.4.
     """
     return SimulationConfig(
         gas=GasProperties(gamma=1.4),
         mesh=MeshConfig(x_min=0.0, x_max=1.0, n_cells=n_cells),
-        # CFL 0.5: high-order schemes produce negative pressure near
-        # vacuum at CFL 0.9 (see docs/08_test_cases.md).
-        time=TimeConfig(t_final=0.1, cfl=0.5),
+        time=TimeConfig(t_final=0.1, cfl=0.9),
         problem=RiemannProblem(
             left=PrimitiveState(rho=1.0, u=-3.5, p=0.4),
             right=PrimitiveState(rho=1.0, u=3.5, p=0.4),

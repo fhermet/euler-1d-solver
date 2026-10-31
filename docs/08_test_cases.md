@@ -78,9 +78,9 @@ $$
 
 avec la discontinuite en $x_d = 0.5$, sur le domaine $[0, 1]$.
 
-**Configuration :** $t_{\text{final}} = 0.15$, $\text{CFL} = 0.5$, conditions aux limites transmissives, $\gamma = 1.4$.
+**Configuration :** $t_{\text{final}} = 0.15$, conditions aux limites transmissives, $\gamma = 1.4$.
 
-**Pourquoi CFL 0,5 ?** À CFL 0,9, WENO3 et WENO5 produisent une pression négative dans un étage Runge-Kutta, quel que soit le flux, et le calcul s'arrête. À CFL 0,5, ils passent tous. Les schémas d'ordre élevé ne préservent pas la positivité : près du vide, ils exigent un pas de temps plus petit (ou un limiteur de positivité, non implémenté ici). Le curseur CFL de l'interface permet de reproduire l'échec à 0,9.
+**Pas de temps des schémas d'ordre élevé.** Les reconstructions (MUSCL, ENO, WENO) sont plafonnées à CFL 0,5 (§6.1). Sans ce plafond, à CFL 0,9, WENO3 et WENO5 produisent une pression négative dans un étage Runge-Kutta sur ce cas, quel que soit le flux.
 
 **Solution exacte :** $p^\ast = 0{,}00189$, $u^\ast = 0$, $\rho^\ast = 0{,}0219$ [Toro, 2009, tableau 4.2].
 
@@ -151,18 +151,19 @@ Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La zone étoile est qua
 
 **Comparaison avec la double detente (SS 8.3) :** La double detente utilise $u = \pm 2$ ($\Delta u = 4$, soit 53% du seuil). Le quasi-vide est un cas bien plus severe.
 
-**Configuration :** Domaine $[0, 1]$, conditions aux limites transmissives, $t_{\text{final}} = 0.1$, $\text{CFL} = 0.5$ (même raison qu'au §8.3), $\gamma = 1.4$.
+**Configuration :** Domaine $[0, 1]$, conditions aux limites transmissives, $t_{\text{final}} = 0.1$, $\gamma = 1.4$.
 
 **Ce que ce test verifie :**
 - **Preservation de la positivite** de la pression et de la densite. Par défaut, aucun plancher n'est appliqué : un schéma qui produit une densité ou une pression négative s'arrête et l'interface l'indique.
 - Robustesse des flux numeriques avec des densites/pressions quasi nulles.
 - Correctement du calcul des eventails de detente pres de la limite du vide.
 
-**Comportement observé (N = 200, CFL 0,5, sans plancher) :**
+**Comportement observé (N = 200, sans plancher ; reconstructions à CFL 0,5) :**
 - Roe sans correction d'entropie diverge, quelle que soit la reconstruction.
 - Roe avec correction passe à l'ordre 1, mais WENO5-Z + Roe diverge : le schéma de Roe n'est pas positivement conservatif [Einfeldt et al., 1991].
 - Lax-Wendroff et JST (centrés, non limités) divergent.
 - HLL, HLLC et Rusanov passent avec toutes les reconstructions. Les schémas les plus dissipatifs sont les plus robustes.
+- WENO3 et WENO5 avec Godunov, AUSM+ ou AUSM+-up divergent.
 
 ---
 
