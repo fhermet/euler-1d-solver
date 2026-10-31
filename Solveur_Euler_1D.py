@@ -393,18 +393,40 @@ def _common_cfl(selected: list, cfl: float, variables: str) -> float:
     return min([cfl] + limits)
 
 
-def report_diagnostics(display_name: str, diagnostics: dict) -> None:
-    """Tell the user when a run diverged, was patched, or ran at a reduced CFL."""
+def report_diagnostics(
+    display_name: str, diagnostics: dict, half_cfl_status: str | None = None
+) -> None:
+    """Tell the user when a run diverged, was patched, or ran at a reduced CFL.
+
+    half_cfl_status is the status of the same run at half the CFL, used to
+    tell a time-step limit from a failure of the spatial scheme.
+    """
     if diagnostics["cfl"] < diagnostics["cfl_requested"]:
         st.caption(
             f"**{display_name}**: CFL {diagnostics['cfl']:g} instead of "
-            f"{diagnostics['cfl_requested']:g}. A limited reconstruction is only "
-            f"guaranteed stable (TVD) up to CFL 0.5."
+            f"{diagnostics['cfl_requested']:g}. MUSCL, ENO and WENO are capped at "
+            f"0.5: in the method of lines a limited reconstruction is TVD only up "
+            f"to 0.5, and WENO, although not TVD, gets the same cap (docs §6.1)."
         )
     if diagnostics["status"] == "diverged":
+        if half_cfl_status == "ok":
+            cause = (
+                f"At CFL {diagnostics['cfl'] / 2:g} the same run succeeds: this is a "
+                f"time-step limit of the scheme on this case, not a defect of its "
+                f"spatial discretisation (example: AUSM+ on Sod, docs §4.9)."
+            )
+        elif half_cfl_status == "diverged":
+            cause = (
+                f"It still fails at CFL {diagnostics['cfl'] / 2:g}: the time step is "
+                f"not the cause. The spatial scheme itself produces a non-physical "
+                f"state here, typically a loss of positivity near vacuum or the "
+                f"oscillations of a centred scheme at a strong shock (docs §8.5)."
+            )
+        else:
+            cause = "This scheme fails on this case."
         st.error(
             f"**{display_name}**: diverged at t = {diagnostics['t_end']:.4g} "
-            f"(negative density or pressure). This scheme fails on this case."
+            f"(negative density or pressure). {cause}"
         )
     if diagnostics["floor_events"]:
         st.warning(
@@ -697,7 +719,13 @@ with tab1:
                     test_case_name, n_cells, run_cfl, gamma, sname, limiter, 1, ti,
                     positivity_floor, recon_variables,
                 )
-                report_diagnostics(display_name, diag)
+                half = None
+                if diag["status"] == "diverged":
+                    half = cached_simulate(
+                        test_case_name, n_cells, diag["cfl"] / 2, gamma, sname, limiter,
+                        1, ti, positivity_floor, recon_variables,
+                    )[4]["status"]
+                report_diagnostics(display_name, diag, half)
                 if diag["status"] == "diverged":
                     continue
                 U = np.array(snapshots[-1])
@@ -850,7 +878,13 @@ with tab4:
         )
 
     # On divergence the animation still runs up to the last finite state.
-    report_diagnostics(dn, diag)
+    half = None
+    if diag["status"] == "diverged":
+        half = cached_simulate(
+            test_case_name, n_cells, diag["cfl"] / 2, gamma, anim_scheme,
+            anim_limiter, 1, anim_ti, positivity_floor, recon_variables,
+        )[4]["status"]
+    report_diagnostics(dn, diag, half)
 
     config = _build_config(test_case_name, n_cells, cfl, gamma)
     t_final = config.time.t_final
