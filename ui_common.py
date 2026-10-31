@@ -7,6 +7,7 @@ import streamlit as st
 
 from euler1d.schemes import get_scheme
 from euler1d.schemes.reconstruction import available_limiters
+from euler1d.solver import select_time_integrator
 
 # ---------------------------------------------------------------------------
 # Scheme selection constants
@@ -291,8 +292,10 @@ def scheme_selector_multi(key_prefix: str) -> list[tuple[str, str | None, str]]:
         names = []
         for key, lim, ti in result:
             s = get_scheme(key, **({"limiter": lim} if lim else {}))
-            rk_label = f" [{ti}]" if ti != "Auto" else ""
-            names.append(f"{s.name}{rk_label}")
+            rk = select_time_integrator(s, None if ti == "Auto" else ti)
+            forced = s.time_integral_included and ti not in ("Auto", "RK1")
+            note = ", time integration built into the flux" if forced else ""
+            names.append(f"{s.name} [{rk}{note}]")
         st.caption("**" + str(len(result)) + " scheme(s)**: " + " · ".join(names))
 
     return result

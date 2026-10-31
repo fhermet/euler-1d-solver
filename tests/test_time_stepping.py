@@ -53,3 +53,15 @@ def test_fixed_step_above_scheme_limit_warns():
     cfg = replace(base, time=replace(base.time, dt_fixed=5.9e-3, t_final=1.18e-2))
     with pytest.warns(RuntimeWarning, match="CFL"):
         run_simulation(cfg, get_scheme("muscl-hllc"))
+
+
+from euler1d.solver import select_time_integrator
+
+
+@pytest.mark.parametrize("name,requested,expected", [
+    ("hllc", None, "RK1"), ("muscl-hllc", None, "RK2"), ("weno5-hllc", None, "RK3"),
+    ("jst", None, "RK4"), ("weno5-hllc", "RK5", "RK5"),
+    ("lax-wendroff", None, "RK1"), ("lax-wendroff", "RK3", "RK1"),
+])
+def test_time_integrator_actually_used(name, requested, expected):
+    assert select_time_integrator(get_scheme(name), requested) == expected

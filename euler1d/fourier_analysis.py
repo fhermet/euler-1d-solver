@@ -55,7 +55,7 @@ import numpy as np
 from euler1d.config import GasProperties
 from euler1d.physics import conservative_to_primitive, primitive_to_conservative
 from euler1d.schemes.base import NumericalScheme
-from euler1d.solver import _compute_rhs, _rk_step
+from euler1d.solver import _compute_rhs, _rk_step, select_time_integrator
 
 WAVE_TYPES = ("entropy", "acoustic", "acoustic-left")
 
@@ -157,10 +157,7 @@ def compute_amplification(
 
     if respect_cfl_limit:
         cfl = min(cfl, scheme.max_cfl)
-    if scheme.time_integral_included:
-        rk = "RK1"
-    else:
-        rk = time_integrator or scheme.default_time_integrator
+    rk = select_time_integrator(scheme, time_integrator)
 
     L = 1.0
     dx = L / n_cells
