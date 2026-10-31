@@ -24,6 +24,8 @@ from euler1d.results import (
     errors_at_round_off,
     estimate_order,
     exact_cell_averages,
+    expected_order,
+    local_orders,
 )
 from euler1d.schemes import get_scheme
 from euler1d.solver import run_simulation
@@ -495,6 +497,8 @@ def _make_convergence_figure(
         (0.5, "dot", "O(Δx⁰·⁵)"),
         (1.0, "dash", "O(Δx)"),
         (2.0, "dashdot", "O(Δx²)"),
+        (3.0, "longdash", "O(Δx³)"),
+        (5.0, "longdashdot", "O(Δx⁵)"),
     ]
 
     for col_idx, norm in enumerate(NORMS, 1):
@@ -682,6 +686,8 @@ with tab1:
                 conv_dfs = []
                 order_rows = []
                 round_off = set()
+                local_rows = []
+                discontinuous_note = None
                 for sname, limiter, ti in selected:
                     df = cached_convergence(
                         test_case_name, cfl, gamma, sname, limiter, n_cells_list, ti,
@@ -700,10 +706,19 @@ with tab1:
                         )
                     conv_dfs.append((display_name, df))
 
+                    scheme = get_scheme(sname, **_scheme_kwargs(sname, limiter, recon_variables))
+                    expected, note = expected_order(
+                        scheme, None if ti == "Auto" else ti,
+                        _build_config(test_case_name, n_cells_list[0], cfl, gamma),
+                    )
+                    if expected is None:
+                        discontinuous_note = note
+
                     var_data = df[df["variable"] == conv_var]
                     if len(var_data) >= 2:
                         dx_vals = var_data["dx"].values
-                        row = {"Scheme": display_name}
+                        row = {"Scheme": display_name,
+                               "Expected": "—" if expected is None else str(expected)}
                         for norm in NORMS:
                             err = var_data[norm].values
                             if errors_at_round_off(err):
@@ -711,7 +726,18 @@ with tab1:
                                 round_off.add(display_name)
                             else:
                                 row[f"Order ({norm})"] = f"{estimate_order(dx_vals, err):.2f}"
+                        row["Why this expected order"] = "see note below" if expected is None else note
                         order_rows.append(row)
+                        for k, n in enumerate(var_data["n_cells"].values):
+                            local = {"Scheme": display_name, "N": int(n)}
+                            for norm in NORMS:
+                                err = var_data[norm].values
+                                local[f"Error {norm}"] = f"{err[k]:.3e}"
+                                local[f"Local order {norm}"] = (
+                                    "" if k == 0 or errors_at_round_off(err)
+                                    else f"{local_orders(dx_vals, err)[k - 1]:.2f}"
+                                )
+                            local_rows.append(local)
 
                 fig = _make_convergence_figure(
                     conv_dfs, conv_var,
@@ -721,6 +747,15 @@ with tab1:
 
                 st.subheader("Estimated convergence orders")
                 st.dataframe(pd.DataFrame(order_rows), width="stretch", hide_index=True)
+                st.caption(
+                    "Order: least-squares slope over all resolutions. It mixes the "
+                    "coarse meshes, where the asymptotic regime is not reached yet; "
+                    "the local orders below show whether it settles."
+                )
+                if discontinuous_note:
+                    st.info(discontinuous_note)
+                with st.expander("Errors and local orders between successive meshes"):
+                    st.dataframe(pd.DataFrame(local_rows), width="stretch", hide_index=True)
                 if round_off:
                     st.info(
                         f"**{', '.join(sorted(round_off))}**: errors at round-off level "

@@ -25,7 +25,8 @@ from euler1d.physics import (
     sound_speed,
 )
 from euler1d.riemann import sample_riemann
-from euler1d.solver import SolverResult, run_simulation
+from euler1d.schemes.base import NumericalScheme
+from euler1d.solver import SolverResult, run_simulation, select_time_integrator
 
 if TYPE_CHECKING:
     from euler1d.schemes.base import NumericalScheme
@@ -282,6 +283,57 @@ def convergence_study(
                 "scheme": scheme.name,
             })
     return pd.DataFrame(rows)
+
+
+_RK_ORDER = {"RK1": 1, "RK2": 2, "RK3": 3, "RK4": 4, "RK5": 5}
+
+
+def expected_order(
+    scheme: NumericalScheme, time_integrator: str | None, config: SimulationConfig
+) -> tuple[int | None, str]:
+    """Convergence order to expect for *scheme* on the problem of *config*.
+
+    Returns (order, note).  On smooth problems the order is the smaller of
+    the spatial and temporal orders (dt is proportional to dx), and a
+    reconstruction on primitive variables cannot exceed 2 on a nonlinear
+    flow (docs/05_reconstruction.md, 5.6).  On discontinuous problems no
+    single order exists: order is None and the note gives the expected
+    rates.
+    """
+    prob = config.problem
+    if not isinstance(prob, SmoothProblem) or prob.label == "shu_osher":
+        return None, (
+            "Discontinuous solution: no single order. In L1, about 1 around "
+            "shocks (they stay a few cells wide) and less around a contact, "
+            "which keeps spreading: on the stationary contact with HLL, "
+            "measured 0.50 at order 1 (theory: 1/2), 0.75 with MUSCL, 0.83 "
+            "with WENO5. L2 gives half the L1 rate; Linf does not converge "
+            "(the error stays O(1) in the cells crossing a discontinuity). "
+            "Higher order shows in the error level, not in the slope."
+        )
+    rk = select_time_integrator(scheme, time_integrator)
+    space = scheme.order
+    time = space if scheme.time_integral_included else _RK_ORDER[rk]
+    note = f"min(space order {space}, time order {time} of {rk})"
+    variables = getattr(scheme, "variables", None)
+    if variables == "primitive" and space > 2 and prob.label == "isentropic_wave":
+        space = 2
+        note += "; primitive variables limit a nonlinear flow to order 2"
+    if prob.label == "acoustic_wave":
+        note += "; errors stop decreasing near 1e-8 (linearised exact solution)"
+    return min(space, time), note
+
+
+def local_orders(dx_values: np.ndarray, error_values: np.ndarray) -> np.ndarray:
+    """Order between each pair of successive meshes: log(e1/e2) / log(dx1/dx2).
+
+    Unlike the global fit of :func:`estimate_order`, these show whether the
+    asymptotic regime is reached (the local order settles).
+    """
+    dx = np.asarray(dx_values, dtype=float)
+    err = np.asarray(error_values, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.log(err[:-1] / err[1:]) / np.log(dx[:-1] / dx[1:])
 
 
 # Below this error (variables of order 1), differences are round-off.

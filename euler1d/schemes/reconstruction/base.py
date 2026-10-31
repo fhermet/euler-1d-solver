@@ -45,6 +45,11 @@ class ReconstructedScheme(NumericalScheme):
         """1D formula: stencils (2*n_ghost, n_var, n_intf) -> (left, right) faces."""
 
     @property
+    def variables(self) -> str:
+        """Reconstructed variables: "primitive", "conservative" or "characteristic"."""
+        return self._variables
+
+    @property
     def name(self) -> str:
         suffix = "" if self._variables == "primitive" else f" [{self._variables}]"
         return f"{self.label}-{self._riemann.name}{suffix}"
