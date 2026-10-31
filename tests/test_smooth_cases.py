@@ -69,3 +69,21 @@ def test_riemann_cell_holding_the_discontinuity_mixes_both_states():
     _, U0 = initial_state(cfg)
     assert U0[0, 2] == pytest.approx(0.5 * (1.0 + 0.125))
     assert U0[0, 1] == 1.0 and U0[0, 3] == 0.125
+
+
+def test_shu_osher_reference_depends_on_the_requested_time():
+    # The reference was cached once, whatever the time asked for.
+    from euler1d.test_cases import shu_osher
+    exact_fn = shu_osher(100).problem.exact_fn
+    x = np.linspace(-4.5, 4.5, 50)
+    early = exact_fn(x, 0.1, GAMMA)
+    later = exact_fn(x, 0.2, GAMMA)
+    assert not np.allclose(early[0], later[0])
+    np.testing.assert_array_equal(exact_fn(x, 0.1, GAMMA)[0], early[0])
+
+
+def test_shu_osher_reference_at_time_zero_is_the_initial_condition():
+    from euler1d.test_cases import shu_osher
+    prob = shu_osher(100).problem
+    x = np.linspace(-4.5, 4.5, 50)
+    np.testing.assert_array_equal(prob.exact_fn(x, 0.0, GAMMA)[0], prob.init_fn(x, GAMMA)[0])

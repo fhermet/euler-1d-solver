@@ -322,7 +322,33 @@ pour le pied $x_0$ de la caractéristique, puis $\rho(x, t) = \rho_0(x_0)$.
 
 ---
 
-## 8.11 Analyse de convergence
+## 8.11 Détente sonique (*sonic rarefaction*, Toro test 1)
+
+Ce cas montre une solution faible non physique : un **choc de détente** (§2.2, « Solutions faibles et choc de détente »).
+
+**Conditions initiales** (domaine $[0, 1]$, $\gamma = 1{,}4$) :
+
+$$
+(\rho, u, p)_L = (1,\; 0{,}75,\; 1), \qquad (\rho, u, p)_R = (0{,}125,\; 0,\; 0{,}1)
+$$
+
+avec la discontinuité en $x_0 = 0{,}3$ et $t_{\text{final}} = 0{,}2$. C'est le test 1 des résultats numériques de Toro à partir du chapitre 6 [Toro, 2009, §6.4], à ne pas confondre avec le tube de Sod du §4.3.3 ($u_L = 0$).
+
+**Structure de la solution :** détente à gauche, contact, choc à droite, comme Sod. La différence est que la détente est **transsonique** : la vitesse caractéristique $u - a$ change de signe à l'intérieur de l'éventail, qui chevauche donc la position initiale de la discontinuité.
+
+**Ce que ce test vérifie :** la correction d'entropie du schéma de Roe. Mesures (saut maximal de $\rho$ entre deux mailles voisines dans la moitié gauche du domaine, qui contient l'éventail) :
+
+| $N$ | Exacte | Roe sans correction | Roe (Harten-Hyman) | HLLC | Godunov |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 100 | 0,034 | 0,130 | 0,046 | 0,039 | 0,085 |
+| 200 | 0,017 | 0,123 | 0,025 | 0,020 | 0,048 |
+| 400 | 0,009 | 0,122 | 0,013 | 0,011 | 0,025 |
+
+Sans correction, le saut ne diminue pas quand on raffine : c'est une vraie discontinuité, le choc de détente. Avec la correction (ou avec HLLC), il décroît comme pour la solution exacte. Godunov présente une petite marche au point sonique, qui diminue avec $N$. Avec une reconstruction MUSCL, Roe sans correction ne produit pas de choc de détente sur ce cas (0,031 à $N = 100$, 0,008 à $N = 400$).
+
+---
+
+## 8.12 Analyse de convergence
 
 L'etude de convergence en maillage est l'outil principal pour verifier qu'un schema atteint bien son ordre de precision theorique.
 
@@ -373,7 +399,7 @@ Sur les problemes de **Riemann** (solutions discontinues), l'ordre de convergenc
 
 ---
 
-## 8.12 Implementation
+## 8.13 Implementation
 
 ### `euler1d/test_cases.py`
 
@@ -385,6 +411,7 @@ Ce module contient des **fonctions factory** qui retournent chacune un objet `Si
 - `stationary_contact(n_cells)` -- SS 8.4
 - `near_vacuum(n_cells)` -- SS 8.5
 - `two_shocks(n_cells)` -- SS 8.6
+- `sonic_rarefaction(n_cells)` -- SS 8.11
 - `shu_osher(n_cells)` -- SS 8.7
 - `entropy_wave(n_cells, epsilon)` -- SS 8.8
 - `acoustic_wave(n_cells, epsilon)` -- SS 8.9
@@ -397,7 +424,7 @@ Les cas lisses (`SmoothProblem`) fournissent une fonction `exact_fn(x, t, gamma)
 Ce module fournit les outils de post-traitement :
 
 - `compute_exact_solution(config)` : calcule la solution exacte sur le maillage, soit par le solveur de Riemann exact (problemes discontinus), soit par la solution analytique (problemes lisses).
-- `compute_errors(result, exact)` : calcule les normes $L_1$, $L_2$, $L_\infty$ pour $\rho$, $u$ et $p$ (SS 8.11).
+- `compute_errors(result, exact)` : calcule les normes $L_1$, $L_2$, $L_\infty$ pour $\rho$, $u$ et $p$ (SS 8.12).
 - `convergence_study(make_config, scheme, n_cells_list)` : lance une etude de convergence complete a CFL constant et retourne un `DataFrame` avec les erreurs pour chaque resolution.
 - `estimate_order(dx_values, error_values)` : estime l'ordre de convergence par regression log-log.
 

@@ -146,7 +146,9 @@ def compute_amplification(
           NaN at theta = pi, where the grid mode is a standing sawtooth with
           no phase, and where |G| < 1e-4, below which the measured phase is
           dominated by the linearisation error (about 1e-6 on G).
-        - **cfl** : CFL number actually used.
+        - **cfl** : CFL number actually used (dt = cfl dx / (|u0| + c0)).
+        - **sigma** : Courant number of the analysed wave, lambda dt / dx,
+          with lambda its speed; smaller than cfl except for the fastest wave.
         - **time_integrator** : RK method actually used.
     """
     if wave_type not in WAVE_TYPES:
@@ -231,5 +233,20 @@ def compute_amplification(
         "abs_G": abs_G,
         "phase_ratio": phase_ratio,
         "cfl": cfl,
+        "sigma": sigma,
         "time_integrator": rk,
     }
+
+
+def damping_per_wavelength(
+    theta: np.ndarray, abs_G: np.ndarray, sigma: float
+) -> np.ndarray:
+    """Amplitude left after the wave has travelled one wavelength.
+
+    |G| is a factor per time step, so it depends on the time step: a smaller
+    CFL gives |G| closer to 1 but more steps.  A wavelength 2*pi/k is
+    travelled in 2*pi / (theta * |sigma|) steps, hence |G| to that power.
+    This compares schemes, or CFL numbers, at equal travelled distance.
+    """
+    with np.errstate(divide="ignore", over="ignore", under="ignore"):
+        return abs_G ** (2.0 * np.pi / (theta * abs(sigma)))

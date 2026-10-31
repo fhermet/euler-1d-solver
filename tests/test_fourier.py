@@ -65,3 +65,33 @@ def test_cfl_follows_the_scheme_limit_unless_asked_otherwise():
     # ENO2 + RK2 amplifies high frequencies over one step at CFL 0.9
     # (transient growth: ENO is nonlinear).
     assert r["abs_G"].max() > 1.4
+
+
+from euler1d.fourier_analysis import damping_per_wavelength
+
+
+def test_mode_courant_number_is_reported():
+    r = compute_amplification(get_scheme("rusanov"), cfl=0.5, n_cells=32, n_modes=16,
+                              wave_type="entropy")
+    assert r["sigma"] == pytest.approx(0.5 * U0 / (U0 + C0))
+
+
+def _per_step_and_per_wavelength(name, cfl, theta=np.pi / 4):
+    r = compute_amplification(get_scheme(name), cfl=cfl, n_cells=64, n_modes=32,
+                              wave_type="entropy", respect_cfl_limit=False)
+    k = int(np.argmin(np.abs(r["theta"] - theta)))
+    return r["abs_G"][k], damping_per_wavelength(r["theta"], r["abs_G"], r["sigma"])[k]
+
+
+def test_per_step_damping_misleads_when_the_cfl_changes():
+    # Rusanov per step: CFL 0.9 seems to damp more (|G| 0.79 against 0.93).
+    # Over the same travelled distance it is the opposite.
+    g_small, d_small = _per_step_and_per_wavelength("rusanov", 0.25)
+    g_large, d_large = _per_step_and_per_wavelength("rusanov", 0.9)
+    assert g_large < g_small
+    assert d_large > d_small
+    # Lax-Friedrichs, whose dissipation scales with dx/dt, damps far more at
+    # small CFL once compared at equal distance.
+    _, lf_small = _per_step_and_per_wavelength("lax-friedrichs", 0.25)
+    _, lf_large = _per_step_and_per_wavelength("lax-friedrichs", 0.9)
+    assert lf_large > 100 * lf_small
