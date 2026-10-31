@@ -7,7 +7,9 @@ from euler1d.physics import primitive_to_conservative
 from euler1d.schemes import get_scheme
 from euler1d.schemes.reconstruction.eno import eno_reconstruct
 from euler1d.solver import run_simulation
-from euler1d.test_cases import double_rarefaction, stationary_contact, two_shocks
+from euler1d.test_cases import (
+    double_rarefaction, near_vacuum, stationary_contact, two_shocks,
+)
 
 
 def test_eno2_picks_the_smaller_slope():
@@ -31,3 +33,12 @@ def test_weno5_default_integrator_keeps_contact_stable(name):
     result = run_simulation(stationary_contact(200), get_scheme(name), n_snapshots=0)
     assert result.status == "ok"
     assert result.floor_events == 0
+
+
+@pytest.mark.parametrize("case", [double_rarefaction, near_vacuum])
+@pytest.mark.parametrize("name", ["weno5-hllc", "wenoz5-hll", "weno3-hll"])
+def test_high_order_runs_near_vacuum_cases_at_their_default_cfl(case, name):
+    # Roe is left out: it is not positively conservative (Einfeldt et al.,
+    # 1991) and wenoz5-roe still fails on near_vacuum at CFL 0.5.
+    result = run_simulation(case(200), get_scheme(name), n_snapshots=0)
+    assert result.status == "ok"

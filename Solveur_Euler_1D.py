@@ -549,7 +549,12 @@ with st.sidebar:
 
     with st.expander("Advanced parameters"):
         n_cells = st.slider("Number of cells", 50, 2000, 200, step=10)
-        cfl = st.slider("CFL", 0.1, 1.0, 0.9, step=0.05)
+        # Default from the test case; one key per case so the slider resets
+        # when the case changes.
+        cfl = st.slider(
+            "CFL", 0.1, 1.0, TEST_CASES[test_case_name]().time.cfl, step=0.05,
+            key=f"cfl_{test_case_name}",
+        )
         if is_smooth:
             gamma = 1.4
             st.info("Gamma fixed at 1.4 for smooth cases")

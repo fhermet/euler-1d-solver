@@ -78,7 +78,11 @@ $$
 
 avec la discontinuite en $x_d = 0.5$, sur le domaine $[0, 1]$.
 
-**Configuration :** $t_{\text{final}} = 0.15$, conditions aux limites transmissives, $\gamma = 1.4$.
+**Configuration :** $t_{\text{final}} = 0.15$, $\text{CFL} = 0.5$, conditions aux limites transmissives, $\gamma = 1.4$.
+
+**Pourquoi CFL 0,5 ?** À CFL 0,9, WENO3 et WENO5 produisent une pression négative dans un étage Runge-Kutta, quel que soit le flux, et le calcul s'arrête. À CFL 0,5, ils passent tous. Les schémas d'ordre élevé ne préservent pas la positivité : près du vide, ils exigent un pas de temps plus petit (ou un limiteur de positivité, non implémenté ici). Le curseur CFL de l'interface permet de reproduire l'échec à 0,9.
+
+**Solution exacte :** $p^\ast = 0{,}00189$, $u^\ast = 0$, $\rho^\ast = 0{,}0219$ [Toro, 2009, tableau 4.2].
 
 **Scenario physique :** Les deux etats ont des vitesses opposees ($u_L = -2$, $u_R = +2$) qui eloignent le gaz du centre. Cela genere deux detentes symetriques se propageant vers les bords, laissant au centre une zone de pression et de densite tres faibles.
 
@@ -143,20 +147,22 @@ $$
 \Delta u_{\text{vide}} = \frac{2}{\gamma - 1}(a_L + a_R) = 5 \times 1.497 = 7.483
 $$
 
-Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La pression de la zone etoile est extremement faible : $p^\ast \sim 10^{-13}$.
+Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La zone étoile est quasi vide : $p^\ast \approx 1{,}9 \times 10^{-9}$ et $\rho^\ast \approx 1{,}1 \times 10^{-6}$. Comme les deux ondes sont des détentes, l'estimation TRRS du chapitre 2 (§2.6) donne directement cette valeur.
 
 **Comparaison avec la double detente (SS 8.3) :** La double detente utilise $u = \pm 2$ ($\Delta u = 4$, soit 53% du seuil). Le quasi-vide est un cas bien plus severe.
 
-**Configuration :** Domaine $[0, 1]$, conditions aux limites transmissives, $t_{\text{final}} = 0.1$, $\gamma = 1.4$.
+**Configuration :** Domaine $[0, 1]$, conditions aux limites transmissives, $t_{\text{final}} = 0.1$, $\text{CFL} = 0.5$ (même raison qu'au §8.3), $\gamma = 1.4$.
 
 **Ce que ce test verifie :**
-- **Preservation de la positivite** de la pression et de la densite. Le plancher de positivite du solveur est mis a rude epreuve.
+- **Preservation de la positivite** de la pression et de la densite. Par défaut, aucun plancher n'est appliqué : un schéma qui produit une densité ou une pression négative s'arrête et l'interface l'indique.
 - Robustesse des flux numeriques avec des densites/pressions quasi nulles.
 - Correctement du calcul des eventails de detente pres de la limite du vide.
 
-**Comportement observe :**
-- Certains schemas (Roe sans correction) peuvent generer des pressions negatives et diverger sans plancher de positivite.
-- Les schemas les plus dissipatifs (Rusanov) sont paradoxalement les plus robustes car ils maintiennent une pression plancher plus elevee.
+**Comportement observé (N = 200, CFL 0,5, sans plancher) :**
+- Roe sans correction d'entropie diverge, quelle que soit la reconstruction.
+- Roe avec correction passe à l'ordre 1, mais WENO5-Z + Roe diverge : le schéma de Roe n'est pas positivement conservatif [Einfeldt et al., 1991].
+- Lax-Wendroff et JST (centrés, non limités) divergent.
+- HLL, HLLC et Rusanov passent avec toutes les reconstructions. Les schémas les plus dissipatifs sont les plus robustes.
 
 ---
 
@@ -365,3 +371,4 @@ Ce module fournit les outils de post-traitement :
 
 - **[Sod, 1978]** G.A. Sod, *A survey of several finite difference methods for systems of nonlinear hyperbolic conservation laws*, Journal of Computational Physics, 27(1), pp. 1-31, 1978.
 - **[Toro, 2009]** E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd edition, Springer, 2009. Ch. 6 (cas test numeriques), Ch. 17 (methodes d'ordre eleve).
+- **[Einfeldt et al., 1991]** B. Einfeldt, C.-D. Munz, P.L. Roe, B. Sjögreen, *On Godunov-type methods near low densities*, Journal of Computational Physics, 92(2), pp. 273-295, 1991.
