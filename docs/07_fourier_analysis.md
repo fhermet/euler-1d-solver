@@ -188,7 +188,7 @@ avec $\lambda$ la vitesse de l'onde excitée. Les tests (`tests/test_fourier.py`
 - **Schemas d'ordre eleve** (MUSCL, WENO) : $\lvert G \rvert$ reste proche de 1 jusqu'a des $\theta$ moderes, puis chute pour les hautes frequences. Le compromis est meilleur : les ondes physiques sont preservees, et seules les frequences mal resolues sont amorties.
 - **Instabilite** : si $\lvert G \rvert > 1$ pour un $\theta$ donne, le mode est amplifie a chaque pas de temps. Cela indique un schema instable pour ce CFL.
 - Une chute brutale a $\theta = \pi$ signifie que le schema ne resout que les basses frequences.
-- **Exemple d'instabilité** : ENO2 + RK2 sur l'onde acoustique droite est stable à CFL 0,5, mais pas au-delà : $\max \lvert G \rvert$ vaut 1,48 à CFL 0,6, 2,12 à 0,7 et 3,88 à 0,9, pour $\theta > 2{,}8$. La sélection de stencil d'ENO, non lisse, amplifie les hautes fréquences. C'est une confirmation indépendante du plafond CFL 0,5 des reconstructions (§6.1) ; la page permet de le reproduire en cochant « Ignore the scheme's CFL limit ».
+- **Schémas non linéaires : $\lvert G \rvert > 1$ sur un pas n'est pas une instabilité durable.** ENO2 + RK2 sur l'onde acoustique droite a $\max \lvert G \rvert = 1$ à CFL 0,5, mais 1,48 à CFL 0,6, 2,12 à 0,7 et 3,88 à 0,9, pour $\theta > 2{,}8$ (valeurs identiques pour $N$ = 96 à 256 et en variables primitives ou caractéristiques). En avançant pas à pas un mode pur $\theta = 3{,}04$ à CFL 0,9, son amplitude passe de $10^{-6}$ à $3{,}5 \times 10^{-4}$ en 10 pas, puis retombe à $3 \times 10^{-6}$ après 40 pas : la forme de l'onde se déforme, la sélection de stencil change et la croissance s'arrête. Un bruit aléatoire ne croît pas. Pour un schéma non linéaire (ENO, limiteurs), $G$ décrit la réponse sur **un** pas, donc une amplification transitoire ; pour un schéma linéaire (ordre 1, Lax-Wendroff, JST, WENO dans son régime lisse), $\lvert G \rvert > 1$ signifie une croissance à chaque pas. L'amplification transitoire d'ENO2 au-delà de CFL 0,5 reste un argument pour le plafond des reconstructions (§6.1) ; la page permet de la reproduire en cochant « Ignore the scheme's CFL limit ».
 
 ### Courbe de dispersion $\varphi_{\text{num}} / \varphi_{\text{exact}}$
 
@@ -245,5 +245,5 @@ Le dictionnaire retourné contient :
 
 ## References
 
-- [Toro, 2009] E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3e edition, Springer. Chapitre 13 : analyse de Fourier des schemas de volumes finis.
-- [Hirsch, 2007] C. Hirsch, *Numerical Computation of Internal and External Flows*, 2e edition, Elsevier. Chapitre 8 : analyse de stabilite et proprietes dissipatives/dispersives.
+- [Toro, 2009] E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3e edition, Springer. Chapitre 13 « High-Order and TVD Methods for Scalar Equations », §13.2.3 « Stability » (stabilité des schémas de base).
+- [Hirsch, 2007] C. Hirsch, *Numerical Computation of Internal and External Flows*, 2e edition, Elsevier. Chapitre 7 « Consistency, Stability and Error Analysis of Numerical Schemes » et chapitre 8 « General Properties and High-Resolution Numerical Schemes ». (Dans la 1re édition, 1988, la méthode de von Neumann fait l'objet du chapitre 8.)

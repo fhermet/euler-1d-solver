@@ -102,7 +102,7 @@ class HLLC(NumericalScheme):
 
 
 def _star_flux(U, F, rho, u, p, S, S_star):
-    """HLLC star-region flux on one side (Toro 2009, eqs. 10.38-10.39)."""
+    """HLLC star-region flux on one side (Toro 2009, §10.4.2)."""
     coeff = rho * (S - u) / (S - S_star)
     U_star = coeff * np.array([
         np.ones_like(S_star),

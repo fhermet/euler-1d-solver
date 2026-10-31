@@ -131,8 +131,12 @@ if selected:
         unstable = [name for name, r in used if r["abs_G"].max() > 1.0 + 1e-6]
         if unstable:
             st.warning(
-                "Unstable (|G| > 1 for some θ): " + ", ".join(unstable)
-                + ". These modes grow at every time step."
+                "|G| > 1 for some θ: " + ", ".join(unstable) + ". For a linear "
+                "scheme (first order, Lax-Wendroff, JST, WENO in smooth regions) "
+                "these modes grow at every step: the scheme is unstable. For a "
+                "nonlinear one (MUSCL limiters, ENO) G describes a single step: "
+                "the growth is transient, as the stencil choice changes with the "
+                "waveform."
             )
 
         st.markdown(

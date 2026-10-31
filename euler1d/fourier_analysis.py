@@ -40,7 +40,8 @@ What the analysis does and does not measure
   is not TVD and lets round-off grow on the Shu-Osher case
   (docs/06_time_integration.md, 6.1).  With superbee, max |G| = 1.004.
 
-Reference: [Toro, 2009] Ch. 13 -- Fourier analysis of FV schemes.
+References: [Toro, 2009] §13.2.3 (stability of basic schemes);
+[Hirsch, 2007] Ch. 7 (consistency, stability and error analysis).
 
 See also
 --------

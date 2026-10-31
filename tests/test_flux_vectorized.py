@@ -22,7 +22,7 @@ def _random_states(n, seed):
 
 
 def _hllc_reference(UL, UR):
-    """Toro (2009), eqs. 10.37-10.39, one interface at a time (Davis speeds)."""
+    """Toro (2009), §10.4.2, one interface at a time (Davis speeds)."""
     F = np.empty_like(UL)
     for k in range(UL.shape[1]):
         uL_, uR_ = UL[:, k], UR[:, k]

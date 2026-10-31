@@ -524,7 +524,7 @@ Les cas test du problème de Riemann (Sod, Lax, double détente) sont définis d
 
 ## Références
 
-- **[Toro, 2009]** E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3e édition, Springer, 2009. Chapitres 4-5 : solution exacte du problème de Riemann, itération de Newton, échantillonnage. La référence principale pour ce chapitre.
+- **[Toro, 2009]** E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3e édition, Springer, 2009. Chapitre 4 : solution exacte du problème de Riemann, itération de Newton (§4.3), échantillonnage (§4.5), vide (§4.6) ; §9.5.1 pour le choix adaptatif de l'estimation initiale. La référence principale pour ce chapitre.
 
 - **[Godunov, 1959]** S.K. Godunov, *A difference method for the numerical calculation of discontinuous solutions of the equations of hydrodynamics*, Matematicheskii Sbornik, 47(3):271-306, 1959. Article fondateur : première utilisation du problème de Riemann comme brique de base d'un schéma numérique.
 

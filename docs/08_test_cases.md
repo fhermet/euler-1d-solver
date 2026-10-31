@@ -82,7 +82,7 @@ avec la discontinuite en $x_d = 0.5$, sur le domaine $[0, 1]$.
 
 **Pas de temps des schémas d'ordre élevé.** Les reconstructions (MUSCL, ENO, WENO) sont plafonnées à CFL 0,5 (§6.1). Sans ce plafond, à CFL 0,9, WENO3 et WENO5 produisent une pression négative dans un étage Runge-Kutta sur ce cas, quel que soit le flux.
 
-**Solution exacte :** $p^\ast = 0{,}00189$, $u^\ast = 0$, $\rho^\ast = 0{,}0219$ [Toro, 2009, tableau 4.2].
+**Solution exacte :** $p^\ast = 0{,}00189$, $u^\ast = 0$, $\rho^\ast = 0{,}0219$ [Toro, 2009, §4.3.3].
 
 **Scenario physique :** Les deux etats ont des vitesses opposees ($u_L = -2$, $u_R = +2$) qui eloignent le gaz du centre. Cela genere deux detentes symetriques se propageant vers les bords, laissant au centre une zone de pression et de densite tres faibles.
 
@@ -163,7 +163,9 @@ Ici $\Delta u = u_R - u_L = 7.0$, soit **93%** du seuil. La zone étoile est qua
 - Roe avec correction passe à l'ordre 1, mais WENO5-Z + Roe diverge : le schéma de Roe n'est pas positivement conservatif [Einfeldt et al., 1991].
 - Lax-Wendroff et JST (centrés, non limités) divergent.
 - HLL, HLLC et Rusanov passent avec toutes les reconstructions. Les schémas les plus dissipatifs sont les plus robustes.
-- WENO3 et WENO5 avec Godunov, AUSM+ ou AUSM+-up divergent.
+- WENO3 et WENO5 avec Godunov, AUSM+ ou AUSM+-up divergent. Ces échecs se rangent en deux familles :
+  - **limite de pas de temps** : WENO5 + Roe (quasi-vide), WENO5 + AUSM+ et WENO5-Z + Godunov (double détente) passent dès CFL 0,4 ;
+  - **perte de positivité de la discrétisation spatiale** : WENO3 + AUSM+, WENO5 + AUSM+-up, WENO5 + Godunov, WENO3-Z + Godunov échouent au même instant physique quel que soit le CFL, jusqu'à 0,1. Dans la maille centrale, l'équation semi-discrète elle-même vide la densité en un temps fini (2 × 10⁻⁴ s pour WENO5 + Godunov, contre 0,12 s avec HLLC), avec une vitesse de −2 là où HLLC garde $u \approx 0$. Aucun pas de temps ne peut y remédier ; il faudrait un limiteur de positivité (Zhang-Shu), non implémenté.
 
 ---
 
@@ -404,5 +406,5 @@ Ce module fournit les outils de post-traitement :
 ## References
 
 - **[Sod, 1978]** G.A. Sod, *A survey of several finite difference methods for systems of nonlinear hyperbolic conservation laws*, Journal of Computational Physics, 27(1), pp. 1-31, 1978.
-- **[Toro, 2009]** E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd edition, Springer, 2009. Ch. 6 (cas test numeriques), Ch. 17 (methodes d'ordre eleve).
+- **[Toro, 2009]** E.F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd edition, Springer, 2009. §4.3.3 et §6.4 (cas tests 1D et résultats numériques), Ch. 13-14 (méthodes d'ordre élevé et TVD).
 - **[Einfeldt et al., 1991]** B. Einfeldt, C.-D. Munz, P.L. Roe, B. Sjögreen, *On Godunov-type methods near low densities*, Journal of Computational Physics, 92(2), pp. 273-295, 1991.

@@ -62,5 +62,6 @@ def test_cfl_follows_the_scheme_limit_unless_asked_otherwise():
     r = compute_amplification(scheme, cfl=0.9, n_cells=128, n_modes=64,
                               wave_type="acoustic", respect_cfl_limit=False)
     assert r["cfl"] == 0.9
-    # ENO2 + RK2 is linearly unstable at CFL 0.9 near theta = pi.
+    # ENO2 + RK2 amplifies high frequencies over one step at CFL 0.9
+    # (transient growth: ENO is nonlinear).
     assert r["abs_G"].max() > 1.4

@@ -296,5 +296,5 @@ L'utilisateur peut toujours forcer un intégrateur différent (par exemple RK3 a
 
 - [Shu, Osher, 1988] C.-W. Shu et S. Osher, *Efficient Implementation of Essentially Non-oscillatory Shock-Capturing Schemes*, Journal of Computational Physics, 77(2), pp. 439-471, 1988.
 - [Dormand, Prince, 1980] J. R. Dormand et P. J. Prince, *A Family of Embedded Runge-Kutta Formulae*, Journal of Computational and Applied Mathematics, 6(1), pp. 19-26, 1980.
-- [Toro, 2009] E. F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3e édition, Springer, 2009, Chapitre 6.
+- [Toro, 2009] E. F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3e édition, Springer, 2009, §6.3.2 « Time Step Size » (condition CFL). Toro ne traite pas les méthodes de Runge-Kutta en méthode des lignes ; voir Shu-Osher et Gottlieb-Shu-Tadmor.
 - [Gottlieb, Shu, Tadmor, 2001] S. Gottlieb, C.-W. Shu et E. Tadmor, *Strong Stability-Preserving High-Order Time Discretization Methods*, SIAM Review, 43(1), pp. 89-112, 2001.
