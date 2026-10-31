@@ -144,7 +144,7 @@ if selected:
             "**Limits of a linear analysis:** the perturbation is tiny ($10^{-6}$), so "
             "WENO weights take their ideal values: the curves show WENO in smooth "
             "regions. $|G| \\leq 1$ is linear stability only; it does not guarantee "
-            "the TVD property. MUSCL at CFL 0.9 has $|G| \\leq 1$ here, yet the solver "
+            "the TVD property. MUSCL (minmod, van Leer) at CFL 0.9 has $|G| \\leq 1$ here, yet the solver "
             "caps it at 0.5 because above that round-off can grow near shocks. "
             "The phase is not defined at $\\theta = \\pi$ (standing grid mode)."
         )

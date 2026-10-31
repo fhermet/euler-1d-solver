@@ -202,7 +202,7 @@ avec $\lambda$ la vitesse de l'onde excitée. Les tests (`tests/test_fourier.py`
 
 - **WENO est analysé dans son régime lisse.** Avec une perturbation d'amplitude $10^{-6}$, les indicateurs de régularité $\beta_k$ sont très inférieurs au paramètre $\varepsilon$ des poids : les poids prennent leurs valeurs idéales et les courbes sont celles du schéma linéaire sous-jacent (décentré d'ordre 5 pour WENO5). C'est le comportement de WENO dans les zones régulières, pas près des discontinuités.
 - **Les limiteurs sont non linéaires**, mais homogènes de degré 1 (ils dépendent de rapports de différences) : le résultat ne dépend pas de l'amplitude. En revanche le limiteur écrête le cosinus à ses extrema ; $G$ mesure la réponse sur le mode fondamental seulement.
-- **Stabilité linéaire et propriété TVD sont deux choses distinctes.** MUSCL à CFL 0,9 a $\lvert G \rvert \leq 1$ pour tout $\theta$, et pourtant il n'est pas TVD à ce CFL : sur le cas de Shu-Osher, il laisse croître le bruit d'arrondi jusqu'à des écarts de 0,4 (§6.1). L'analyse de Fourier ne voit pas ce défaut, propre au comportement non linéaire du limiteur.
+- **Stabilité linéaire et propriété TVD sont deux choses distinctes.** MUSCL avec minmod, van Leer, MC ou van Albada a $\lvert G \rvert \leq 1$ pour tout $\theta$ à CFL 0,9 (superbee, plus compressif, atteint 1,004), et pourtant il n'est pas TVD à ce CFL : sur le cas de Shu-Osher, il laisse croître le bruit d'arrondi jusqu'à des écarts de 0,4 (§6.1). L'analyse de Fourier ne voit pas ce défaut, propre au comportement non linéaire du limiteur.
 - **Le CFL analysé** est par défaut celui que le solveur utiliserait : le CFL demandé, plafonné par `max_cfl` (0,5 pour les reconstructions).
 
 ### Signatures typiques

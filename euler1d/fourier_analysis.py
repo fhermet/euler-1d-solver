@@ -36,8 +36,9 @@ What the analysis does and does not measure
   differences), so MUSCL results do not depend on the amplitude, but the
   limiter clips the cosine at its extrema: G is that of the fundamental only.
 * |G| <= 1 means linear (von Neumann) stability.  It does not imply the TVD
-  property: MUSCL at CFL 0.9 has |G| <= 1 here, yet it is not TVD and lets
-  round-off grow on the Shu-Osher case (docs/06_time_integration.md, 6.1).
+  property: MUSCL (minmod, van Leer, MC) at CFL 0.9 has |G| <= 1 here, yet it
+  is not TVD and lets round-off grow on the Shu-Osher case
+  (docs/06_time_integration.md, 6.1).  With superbee, max |G| = 1.004.
 
 Reference: [Toro, 2009] Ch. 13 -- Fourier analysis of FV schemes.
 
