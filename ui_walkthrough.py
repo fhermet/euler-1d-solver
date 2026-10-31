@@ -1,244 +1,286 @@
-"""Plotly figures of the finite-volume walkthrough page (labels in French)."""
+"""Plotly figures of the eight screens of the walkthrough page (labels in French).
+
+Each figure shows one curve or one diagram and one bubble: an arrow annotation
+pointing at the thing to look at.  Screens 1 to 6 advect a square wave
+(euler1d.advection), screens 7 and 8 come back to Sod.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
-from euler1d.fv_walkthrough import FluxBreakdown, Wave
-from euler1d.physics import conservative_to_primitive
+from euler1d.advection import SQUARE, cell_centres, cut_cell, exact_averages, exact_point
+from euler1d.config import GasProperties
+from euler1d.fv_walkthrough import SOD_LEFT, SOD_RIGHT, exact_waves, model_waves
+from euler1d.physics import primitive_to_conservative
+from euler1d.riemann import sample_riemann, solve_riemann
 from ui_common import COLORS, THESIS_LAYOUT, thesis_axis
 
-VAR_NAMES = ["ρ", "u", "p"]
-COMPONENT_NAMES = ["masse", "quantité de mouvement", "énergie"]
+CFL_SCREEN_4 = 0.8
+CFL_SCREEN_6 = 0.5
+GAMMA = 1.4
 GREY = "#9a9a9a"
-_HOVER = ("ρ = %{customdata[0]:.4f}, ρu = %{customdata[1]:.4f}, E = %{customdata[2]:.4f}<br>"
-          "ρ = %{customdata[3]:.4f}, u = %{customdata[4]:.4f}, p = %{customdata[5]:.4f}"
-          "<extra></extra>")
+BLUE = COLORS[0]
+RED = "#d9534f"
+Y_RANGE = [-0.5, 1.5]
+FINE = np.linspace(0.0, 1.0, 2001)
+
+SLOPE_LABELS = {"order1": "ordre 1", "fromm": "pente sans limiteur",
+                "minmod": "pente limitée minmod", "van-leer": "pente limitée van Leer"}
 
 
-def _prim(U: np.ndarray, gamma: float) -> np.ndarray:
-    with np.errstate(invalid="ignore", divide="ignore"):
-        return np.array(conservative_to_primitive(U, gamma))
+def _fr(v: float) -> str:
+    return f"{v:.2f}".replace(".", ",")
 
 
-def _faces(x: np.ndarray, dx: float) -> np.ndarray:
-    return np.append(x - 0.5 * dx, x[-1] + 0.5 * dx)
+def bubble(fig: go.Figure, x: float, y: float, text: str, ax: float = 40, ay: float = -50,
+           xanchor: str = "auto") -> None:
+    """The one thing to look at: an arrow from a framed label to (x, y)."""
+    fig.add_annotation(x=x, y=y, text=text, showarrow=True, ax=ax, ay=ay, xanchor=xanchor,
+                       arrowhead=2, arrowsize=1.2, arrowwidth=2, arrowcolor=RED,
+                       bgcolor="#fff4f3", bordercolor=RED, borderwidth=1.5, borderpad=6,
+                       font=dict(size=15, color="#222222"))
 
 
-def _plateaus(x, dx, values, name, color, dash="solid", width=2.0, opacity=1.0):
-    """Cell averages drawn as horizontal plateaus over each cell."""
+def _plateaus(values, name, color=BLUE, width=3.0, dash="solid"):
+    """Cell averages drawn as horizontal plateaus over each cell of [0, 1]."""
+    n = len(values)
     xs, ys = [], []
-    for xc, v in zip(x, values):
-        xs += [xc - 0.5 * dx, xc + 0.5 * dx, None]
+    for i, v in enumerate(values):
+        xs += [i / n, (i + 1) / n, None]
         ys += [v, v, None]
-    return go.Scatter(x=xs, y=ys, mode="lines", name=name, opacity=opacity,
-                      line=dict(color=color, width=width, dash=dash))
+    return go.Scatter(x=xs, y=ys, mode="lines", name=name, line=dict(color=color, width=width, dash=dash))
 
 
-def _finish(fig: go.Figure, height: int = 430) -> go.Figure:
+def _exact_curve(t: float, name: str = "solution exacte", color=GREY, dash="dash"):
+    return go.Scatter(x=FINE, y=exact_point(FINE, t), mode="lines", name=name,
+                      line=dict(color=color, width=2, dash=dash))
+
+
+def _layout(fig: go.Figure, x_title="x", y_title="u", y_range=Y_RANGE, x_range=(0.0, 1.0),
+            height=400) -> go.Figure:
     fig.update_layout(**THESIS_LAYOUT, height=height,
-                      legend=dict(orientation="h", y=-0.2))
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0))
+    fig.update_layout(margin=dict(l=60, r=20, t=50, b=50))
+    fig.update_xaxes(thesis_axis(title_text=x_title), range=list(x_range))
+    fig.update_yaxes(thesis_axis(title_text=y_title), range=list(y_range))
     return fig
 
 
-def _face_lines(fig, x, dx, row=None, col=None):
-    for xf in _faces(x, dx):
-        fig.add_vline(x=xf, line=dict(color="#e3e3e3", width=1), row=row, col=col)
+def _clip(y):
+    """Values off the frame are drawn on its border."""
+    return np.clip(y, Y_RANGE[0] + 0.05, Y_RANGE[1] - 0.05)
 
 
-def fig_averages(x, dx, U, var, gamma, exact) -> go.Figure:
-    """Step 1: cell averages as plateaus; for rho, the shaded area is the cell content."""
-    W = _prim(U, gamma)
-    custom = np.column_stack([U[0], U[1], U[2], W[0], W[1], W[2]])
+def _inner_bubble(fig, x, y, text, ay=-60, dx=40):
+    """Bubble on [0, 1] whose label stays inside the frame: it opens toward the centre."""
+    if x < 0.5:
+        bubble(fig, x, y, text, ax=dx, ay=ay, xanchor="left")
+    else:
+        bubble(fig, x, y, text, ax=-dx, ay=ay, xanchor="right")
+
+
+def _square_middle(t: float) -> float:
+    """Middle of the longest visible piece of the square at time t."""
+    a = (SQUARE[0] + t) % 1.0
+    b = a + SQUARE[1] - SQUARE[0]
+    if b <= 1.0:
+        return 0.5 * (a + b)
+    return 0.5 * (a + 1.0) if 1.0 - a >= b - 1.0 else 0.5 * (b - 1.0)
+
+
+def _front(t: float) -> float:
+    """Leading (right) edge of the square at time t."""
+    return (SQUARE[1] + t) % 1.0
+
+
+def _time(n_cells: int, cfl: float, steps: int) -> float:
+    return steps * cfl / n_cells
+
+
+# ---------------------------------------------------------------------------
+# Chapter 1: advection of a square wave
+# ---------------------------------------------------------------------------
+
+def fig_screen_1(t: float) -> go.Figure:
+    """The exact solution at time t, over its initial position."""
+    fig = go.Figure([_exact_curve(0.0, "t = 0", color="#d0d0d0", dash="dot"),
+                     _exact_curve(t, f"t = {_fr(t)}", color="black", dash="solid")])
+    fig.data[1].line.width = 3
+    _inner_bubble(fig, _square_middle(t), 1.0, "il avance sans se déformer")
+    return _layout(fig)
+
+
+def fig_screen_2(n_cells: int) -> go.Figure:
+    """Exact profile and its cell averages at t = 0; the bubble on a cut cell."""
+    u = exact_averages(n_cells, 0.0)
+    fig = go.Figure([_exact_curve(0.0), _plateaus(u, f"moyennes sur {n_cells} mailles")])
+    cut = cut_cell(n_cells)
+    if cut < 0:
+        cut = next((i for i, v in enumerate(u) if 1e-9 < v < 1.0 - 1e-9), -1)
+    if cut >= 0:
+        fig.add_vrect(x0=cut / n_cells, x1=(cut + 1) / n_cells, fillcolor=RED, opacity=0.15,
+                      line_width=0)
+        _inner_bubble(fig, (cut + 0.5) / n_cells, u[cut], "valeur intermédiaire : la moyenne",
+                      ay=-70)
+    else:
+        _inner_bubble(fig, SQUARE[0], 0.5, "bord sur une face : aucune maille coupée", ay=-80)
+    return _layout(fig)
+
+
+def _flux_arrow(fig, x_face, y, length, label, color, side):
+    """Horizontal arrow through a face (a = 1: flux goes to the right)."""
+    fig.add_trace(go.Scatter(x=[x_face - 0.5 * length, x_face + 0.5 * length], y=[y, y],
+                             mode="lines+markers", showlegend=False, hoverinfo="skip",
+                             line=dict(color=color, width=3),
+                             marker=dict(symbol=["line-ns", "triangle-right"], size=[1, 14],
+                                         color=color)))
+    fig.add_annotation(x=x_face, y=y, text=label, showarrow=False, yshift=18,
+                       xanchor=side, xshift=-6 if side == "right" else 6,
+                       font=dict(size=14, color=color))
+
+
+def fig_screen_3(u_before: np.ndarray, u_after: np.ndarray, cell: int, cfl: float) -> go.Figure:
+    """One time step seen from one cell: what enters, what leaves, before and after."""
+    n = len(u_before)
+    dx = 1.0 / n
+    left, right = cell * dx, (cell + 1) * dx
+    f_in, f_out = u_before[cell - 1], u_before[cell]   # upwind, a = 1
+    fig = go.Figure([_plateaus(u_before, "avant le pas", color=GREY, width=2, dash="dash"),
+                     _plateaus(u_after, "après le pas")])
+    fig.add_vrect(x0=left, x1=right, fillcolor=RED, opacity=0.12, line_width=0)
+    y_arrow = 1.3
+    _flux_arrow(fig, left, y_arrow, 1.2 * dx, f"entre {_fr(f_in)}", COLORS[2], "right")
+    _flux_arrow(fig, right, y_arrow, 1.2 * dx, f"sort {_fr(f_out)}", COLORS[3], "left")
+    bubble(fig, 0.5 * (left + right), u_after[cell],
+           f"moyenne : {_fr(u_before[cell])} → {_fr(u_after[cell])}", ax=110, ay=40)
+    centre = 0.5 * (left + right)
+    return _layout(fig, x_range=(centre - 6.5 * dx, centre + 6.5 * dx))
+
+
+def _explosion_bubble(fig, run) -> None:
+    """Points at the largest value of the last state, drawn on the frame border if off it."""
+    n = len(run.u)
+    i = int(np.argmax(np.abs(run.u)))
+    y = float(_clip(run.u[i]))
+    _inner_bubble(fig, (i + 0.5) / n, y, f"le calcul explose au pas {run.steps_done + 1}",
+                  ay=60 if y > 0.5 else -60)
+
+
+def fig_screen_4(run, scheme: str, n_steps: int) -> go.Figure:
+    """Upwind or centred face value, after n_steps steps at CFL 0.8."""
+    n = len(run.u)
+    t = _time(n, CFL_SCREEN_4, run.steps_done)
+    name = "décentré amont" if scheme == "upwind" else "centré"
+    fig = go.Figure([_exact_curve(t), _plateaus(_clip(run.u), name)])
+    if run.exploded:
+        _explosion_bubble(fig, run)
+    elif n_steps == 0:
+        _inner_bubble(fig, _front(0.0), 0.5, "état initial : augmentez le nombre de pas")
+    elif scheme == "upwind":
+        _inner_bubble(fig, _front(t), 0.5, "le front s'étale : diffusion numérique")
+    else:
+        i = int(np.argmax(np.abs(run.u - 0.5)))
+        _inner_bubble(fig, (i + 0.5) / n, _clip(run.u[i]),
+                      "des oscillations apparaissent et grandissent", ay=-50 if run.u[i] < 1.0 else 50)
+    return _layout(fig)
+
+
+def fig_screen_5(run, cfl: float, n_steps: int) -> go.Figure:
+    """Upwind scheme at the chosen CFL number."""
+    n = len(run.u)
+    t = _time(n, cfl, run.steps_done)
+    fig = go.Figure([_exact_curve(t), _plateaus(_clip(run.u), f"décentré amont, CFL = {_fr(cfl)}")])
+    if run.exploded:
+        _explosion_bubble(fig, run)
+    elif n_steps == 0:
+        _inner_bubble(fig, _front(0.0), 0.5, "état initial : augmentez le nombre de pas")
+    elif np.isclose(cfl, 1.0):
+        _inner_bubble(fig, _square_middle(t), 1.0, "exact : un pas = une maille")
+    elif cfl > 1.0:
+        i = int(np.argmax(np.abs(run.u - 0.5)))
+        _inner_bubble(fig, (i + 0.5) / n, _clip(run.u[i]), "CFL > 1 : le calcul va exploser",
+                      ay=-50 if run.u[i] < 1.0 else 50)
+    else:
+        _inner_bubble(fig, _front(t), 0.5, "étalé : CFL < 1")
+    return _layout(fig)
+
+
+def fig_screen_6(u: np.ndarray, slope: str, t: float) -> go.Figure:
+    """Order 1 against a slope in each cell, with or without a limiter, at time t."""
+    n = len(u)
+    fig = go.Figure([_exact_curve(t), _plateaus(u, SLOPE_LABELS[slope])])
+    if slope == "fromm":
+        i = int(np.argmax(u))
+        _inner_bubble(fig, (i + 0.5) / n, _clip(u[i]), "dépassements", ay=-50)
+    elif slope == "order1":
+        _inner_bubble(fig, _front(t), 0.5, "très étalé")
+    else:
+        _inner_bubble(fig, _front(t), 0.5, "front plus raide, sans oscillation")
+    return _layout(fig)
+
+
+# ---------------------------------------------------------------------------
+# Chapter 2: Euler (Sod)
+# ---------------------------------------------------------------------------
+
+_WAVE_NAMES = {"rarefaction": "détente", "contact": "contact", "shock": "choc"}
+_FLUX_NAMES = {"rusanov": "Rusanov", "hll": "HLL", "hllc": "HLLC"}
+
+
+def fig_screen_7(choice: str) -> go.Figure:
+    """(x, t) diagram at the central Sod face: exact waves, and the waves a solver models."""
+    waves = exact_waves(SOD_LEFT, SOD_RIGHT, GAMMA)
     fig = go.Figure()
-    _face_lines(fig, x, dx)
-    if var == 0:   # the area is a conserved content only for the density
-        fig.add_trace(go.Bar(x=x, y=W[var], width=dx, name="contenu de la maille",
-                             marker=dict(color=COLORS[0], opacity=0.18, line=dict(width=0)),
-                             hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=x, y=W[var], mode="markers", marker=dict(size=14, opacity=0),
-                             customdata=custom, showlegend=False,
-                             hovertemplate=_HOVER))
-    fig.add_trace(_plateaus(x, dx, W[var], "moyennes de maille", COLORS[0]))
-    if exact is not None:
-        fig.add_trace(_plateaus(x, dx, exact, "solution exacte", GREY, "dot", 1.2))
-    fig.update_xaxes(thesis_axis(title_text="x"))
-    fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]))
-    return _finish(fig)
 
+    def ray(speed, name, show, **line):
+        fig.add_trace(go.Scatter(x=[0.0, speed], y=[0.0, 1.0], mode="lines", line=line, name=name,
+                                 showlegend=show, legendgroup=name, hoverinfo="skip"))
 
-def fig_reconstruction(x, dx, U, UL, UR, flat, var, gamma, linear, exact) -> go.Figure:
-    """Step 2: reconstruction in each cell, states at the interfaces, jumps."""
-    W = _prim(U, gamma)
-    WL, WR = _prim(UL, gamma)[var], _prim(UR, gamma)[var]
-    xf = _faces(x, dx)
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3],
-                        vertical_spacing=0.08)
-    _face_lines(fig, x, dx, row=1, col=1)
-    fig.add_trace(_plateaus(x, dx, W[var], "moyennes", COLORS[0], opacity=0.3), row=1, col=1)
-    # Cell i goes from its left face state UR[:, i] to its right face state UL[:, i+1].
-    xs, ys = [], []
-    for i in range(len(x)):
-        xs += [xf[i], xf[i + 1], None]
-        ys += [WR[i], WL[i + 1], None]
-    fig.add_trace(go.Scatter(
-        x=xs, y=ys, mode="lines",
-        name="reconstruction" if linear else "valeurs aux faces (reliées)",
-        line=dict(color=COLORS[1], width=2.5, dash="solid" if linear else "dot"),
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(x=xf, y=WL, mode="markers", name="U_L (maille de gauche)",
-                             marker=dict(symbol="triangle-left", size=9, color=COLORS[2])),
-                  row=1, col=1)
-    fig.add_trace(go.Scatter(x=xf, y=WR, mode="markers", name="U_R (maille de droite)",
-                             marker=dict(symbol="triangle-right", size=9, color=COLORS[3])),
-                  row=1, col=1)
-    if np.any(flat):
-        fig.add_trace(go.Scatter(x=x[flat], y=W[var][flat], mode="markers",
-                                 name="pente annulée",
-                                 marker=dict(symbol="x", size=11, color="black")),
-                      row=1, col=1)
-    if exact is not None:
-        fig.add_trace(_plateaus(x, dx, exact, "solution exacte", GREY, "dot", 1.2),
-                      row=1, col=1)
-    fig.add_trace(go.Bar(x=xf, y=np.abs(WR - WL), width=0.35 * dx, name="|U_R − U_L|",
-                         marker=dict(color=COLORS[4])), row=2, col=1)
-    fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]), row=1, col=1)
-    fig.update_yaxes(thesis_axis(title_text="saut"), row=2, col=1)
-    fig.update_xaxes(thesis_axis(title_text="x"), row=2, col=1)
-    fig.update_xaxes(thesis_axis(), row=1, col=1)
-    return _finish(fig, 560)
-
-
-def fig_riemann(WL, WR, waves: list[Wave], model, dx, dt, var) -> go.Figure:
-    """Step 3: the two states and the (x, t) diagram of the local problem."""
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.35, 0.65],
-                        subplot_titles=["états de part et d'autre de l'interface",
-                                        "diagramme (x, t) pendant un pas"])
-    fig.add_trace(go.Scatter(x=[-1, 0, None, 0, 1], y=[WL[var], WL[var], None, WR[var], WR[var]],
-                             mode="lines", name="U_L | U_R", line=dict(color=COLORS[0], width=3)),
-                  row=1, col=1)
-    fig.update_xaxes(thesis_axis(title_text="position (interface en 0)"), row=1, col=1)
-    fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]), row=1, col=1)
-
-    def ray(speed, **line):
-        return go.Scatter(x=[0, speed * dt], y=[0, dt], mode="lines", line=line,
-                          showlegend=False, hoverinfo="skip")
-
-    styles = {"shock": dict(color="black", width=3),
-              "contact": dict(color="black", width=2, dash="dash"),
-              "rarefaction": dict(color="black", width=1)}
+    black = dict(color="black")
     for wave in waves:
         if wave.kind == "rarefaction":
-            for s in np.linspace(*wave.speeds, 6):
-                fig.add_trace(ray(s, **styles["rarefaction"]), row=1, col=2)
-        elif wave.kind == "vacuum":
-            a, b = wave.speeds
-            fig.add_trace(go.Scatter(x=[0, a * dt, b * dt, 0], y=[0, dt, dt, 0], fill="toself",
-                                     mode="lines", line=dict(width=0), name="vide",
-                                     fillcolor="rgba(0,0,0,0.12)"), row=1, col=2)
+            for j, s in enumerate(np.linspace(*wave.speeds, 6)):
+                ray(s, "solution exacte", False, width=1, **black)
+        elif wave.kind == "contact":
+            ray(wave.speeds[0], "solution exacte", False, width=2.5, dash="dash", **black)
         else:
-            fig.add_trace(ray(wave.speeds[0], **styles[wave.kind]), row=1, col=2)
-    # One legend entry per wave kind.
-    for kind, label in [("shock", "choc"), ("contact", "contact"), ("rarefaction", "détente")]:
-        if any(w.kind == kind for w in waves):
-            fig.add_trace(go.Scatter(x=[None], y=[None], mode="lines", line=styles[kind],
-                                     name=f"solution exacte : {label}"), row=1, col=2)
-    for j, s in enumerate(model or []):
-        fig.add_trace(go.Scatter(x=[0, s * dt], y=[0, dt], mode="lines",
-                                 line=dict(color=COLORS[1], width=2.5, dash="dot"),
-                                 name="ondes du modèle du flux", showlegend=j == 0),
-                      row=1, col=2)
-    fig.add_vline(x=0, line=dict(color=COLORS[2], width=2), row=1, col=2)
-    fig.add_shape(type="rect", x0=-dx, x1=dx, y0=0, y1=dt, line=dict(color=COLORS[4], dash="dash"),
-                  row=1, col=2)
-    speeds = [abs(s) for w in waves for s in w.speeds] + [abs(s) for s in (model or [])]
-    half_width = max(1.3 * dx, 1.1 * max(speeds, default=0.0) * dt)
-    fig.update_xaxes(thesis_axis(title_text="x − x_interface"),
-                     range=[-half_width, half_width], row=1, col=2)
-    fig.update_yaxes(thesis_axis(title_text="t"), range=[0, 1.05 * dt], row=1, col=2)
-    return _finish(fig, 460)
-
-
-def fig_fluxes(x, dx, U, breakdown: FluxBreakdown, component, var, gamma, k) -> go.Figure:
-    """Step 4: flux arrows at the interfaces and the flux decomposition at k."""
-    W = _prim(U, gamma)
-    F = breakdown.numerical[component]
-    xf = _faces(x, dx)
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.68, 0.32],
-                        subplot_titles=[f"flux de {COMPONENT_NAMES[component]} aux interfaces",
-                                        f"à l'interface {k}"])
-    fig.add_trace(_plateaus(x, dx, W[var], "moyennes", COLORS[0]), row=1, col=1)
-    top = float(np.nanmax(W[var]))
-    span = top - float(np.nanmin(W[var])) or 1.0
-    y_arrow = top + 0.15 * span
-    scale = 0.45 * dx / max(float(np.nanmax(np.abs(F))), 1e-300)
-    for j, (xj, fj) in enumerate(zip(xf, F)):
-        if abs(fj) * scale < 0.02 * dx:
-            continue
-        fig.add_annotation(x=xj + fj * scale, y=y_arrow, ax=xj - fj * scale, ay=y_arrow,
-                           xref="x", yref="y", axref="x", ayref="y", showarrow=True,
-                           arrowhead=2, arrowwidth=2,
-                           arrowcolor=COLORS[1] if j != k else COLORS[3], text="")
-    fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]),
-                     range=[float(np.nanmin(W[var])) - 0.1 * span, top + 0.3 * span], row=1, col=1)
-    fig.update_xaxes(thesis_axis(title_text="x"), row=1, col=1)
-    labels = ["centrée", "dissipation", "schéma", "Godunov"]
-    values = [breakdown.centred[component, k], breakdown.dissipation[component, k],
-              breakdown.numerical[component, k], breakdown.godunov[component, k]]
-    fig.add_trace(go.Bar(x=labels, y=values, name="décomposition",
-                         marker=dict(color=[COLORS[0], COLORS[4], COLORS[1], GREY])),
-                  row=1, col=2)
-    fig.update_yaxes(thesis_axis(title_text="flux"), row=1, col=2)
-    return _finish(fig, 440)
-
-
-def fig_update(x, dx, U, U_new, F, i, var, gamma) -> go.Figure:
-    """Step 5: one cell before and after its update, and the whole profile."""
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.35, 0.65],
-                        subplot_titles=[f"maille {i} : moyennes conservatives",
-                                        "profil avant et après un étage"])
-    names = ["ρ", "ρu", "E"]
-    fig.add_trace(go.Bar(x=names, y=U[:, i], name="avant", marker=dict(color=COLORS[0])),
-                  row=1, col=1)
-    fig.add_trace(go.Bar(x=names, y=U_new[:, i], name="après", marker=dict(color=COLORS[1])),
-                  row=1, col=1)
-    W, W_new = _prim(U, gamma), _prim(U_new, gamma)
-    fig.add_vrect(x0=x[i] - 0.5 * dx, x1=x[i] + 0.5 * dx, fillcolor=COLORS[3], opacity=0.12,
-                  line_width=0, row=1, col=2)
-    before = _plateaus(x, dx, W[var], "avant", COLORS[0])
-    after = _plateaus(x, dx, W_new[var], "après", COLORS[1], "dash")
-    before.showlegend = after.showlegend = False   # same names as the bars
-    fig.add_trace(before, row=1, col=2)
-    fig.add_trace(after, row=1, col=2)
-    fig.update_xaxes(thesis_axis(title_text="x"), row=1, col=2)
-    fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]), row=1, col=2)
-    fig.update_layout(barmode="group")
-    return _finish(fig, 420)
-
-
-def fig_stages(x, dx, stages: list[np.ndarray], var, gamma, i_max) -> go.Figure:
-    """Step 6: state at each Runge-Kutta stage, from U^n to U^{n+1}."""
-    fig = go.Figure()
-    _face_lines(fig, x, dx)
-    dashes = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
-    for s, U in enumerate(stages):
-        if s == 0:
-            name = "Uⁿ (étage 1)"
-        elif s == len(stages) - 1:
-            name = "Uⁿ⁺¹"
+            ray(wave.speeds[0], "solution exacte", True, width=3.5, **black)
+        tip = wave.speeds[0] if wave.kind != "rarefaction" else np.mean(wave.speeds)
+        fig.add_annotation(x=tip, y=1.0, text=_WAVE_NAMES[wave.kind], showarrow=False, yshift=12,
+                           font=dict(size=14))
+    contact = waves[1].speeds[0]
+    if choice == "exact":
+        bubble(fig, -0.6, 0.6, "trois ondes, dans les deux sens", ax=-110, ay=130)
+    else:
+        UL = primitive_to_conservative(*(np.array([v]) for v in SOD_LEFT), GAMMA)
+        UR = primitive_to_conservative(*(np.array([v]) for v in SOD_RIGHT), GAMMA)
+        speeds = model_waves(choice, np.ravel(UL), np.ravel(UR), GasProperties(gamma=GAMMA))
+        for j, s in enumerate(speeds):
+            ray(s, f"ondes du modèle {_FLUX_NAMES[choice]}", j == 0, width=3, dash="dot",
+                color=RED)
+        if choice == "hll":
+            bubble(fig, 0.6 * contact, 0.6, "HLL ne voit pas cette onde :<br>le contact sera étalé",
+                   ax=135, ay=130)
         else:
-            name = f"étage {s + 1}"
-        last = s == len(stages) - 1
-        # Final state in red; stages in the other colours (red is COLORS[1]).
-        fig.add_trace(_plateaus(x, dx, _prim(U, gamma)[var], name,
-                                COLORS[1] if last else COLORS[(0, 2, 3, 4, 5, 6)[s % 6]],
-                                "solid" if last else dashes[s % len(dashes)],
-                                3 if last else 1.6))
-    fig.add_vrect(x0=x[i_max] - 0.5 * dx, x1=x[i_max] + 0.5 * dx, fillcolor=COLORS[4],
-                  opacity=0.15, line_width=0, annotation_text="max |u| + c",
-                  annotation_position="top left")
-    fig.update_xaxes(thesis_axis(title_text="x"))
-    fig.update_yaxes(thesis_axis(title_text=VAR_NAMES[var]))
-    return _finish(fig)
+            bubble(fig, 0.6 * contact, 0.6, "les trois ondes sont modélisées", ax=135, ay=130)
+    fig.add_vline(x=0.0, line=dict(color=COLORS[2], width=2))
+    fig.add_annotation(x=0.0, y=0.03, text="face", showarrow=False, xshift=-22,
+                       font=dict(size=14, color=COLORS[2]))
+    return _layout(fig, x_title="x − x_face (pour t = 1)", y_title="t", y_range=(0.0, 1.12),
+                   x_range=(-2.0, 2.0), height=430)
+
+
+def fig_screen_8(x: np.ndarray, rho: np.ndarray, flux: str, k: int) -> go.Figure:
+    """Density of Sod at t = 0.2 on 100 cells; the bubble on the contact."""
+    t = 0.2
+    rho_exact, _, _ = sample_riemann(FINE, t, *SOD_LEFT, *SOD_RIGHT, GAMMA, x0=0.5)
+    _, u_star, rho_l, rho_r = solve_riemann(*SOD_LEFT, *SOD_RIGHT, GAMMA)
+    fig = go.Figure([go.Scatter(x=FINE, y=rho_exact, mode="lines", name="solution exacte",
+                                line=dict(color=GREY, width=2, dash="dash")),
+                     _plateaus(rho, _FLUX_NAMES[flux])])
+    word = "maille" if k <= 1 else "mailles"
+    _inner_bubble(fig, 0.5 + u_star * t, 0.5 * (rho_l + rho_r), f"contact étalé sur {k} {word}",
+                  ay=-90)
+    return _layout(fig, y_title="ρ", y_range=(0.0, 1.1))
