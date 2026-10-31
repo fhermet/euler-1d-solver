@@ -7,7 +7,7 @@ This module provides the post-processing pipeline for simulation results:
 * Measuring discretisation errors with L1, L2, and Linf norms.
 * Running mesh-convergence studies and estimating convergence orders.
 
-See docs/08_test_cases.md, Section 8.11 for the mathematical background.
+See docs/08_test_cases.md, Section 8.12 for the mathematical background.
 """
 
 from __future__ import annotations
@@ -149,7 +149,7 @@ def compute_errors(
 ) -> dict[str, dict[str, float]]:
     """Compute L1, L2, and Linf error norms for rho, u, and p.
 
-    The discrete error norms are defined as (see docs/08_test_cases.md, Section 8.11):
+    The discrete error norms are defined as (see docs/08_test_cases.md, Section 8.12):
 
         L1   = sum(|f_i - f_exact_i|) * dx
         L2   = sqrt(sum((f_i - f_exact_i)**2) * dx)
@@ -229,7 +229,7 @@ def convergence_study(
     variables: tuple[str, ...] = ("rho", "u", "p"),
     time_integrator: str | None = None,
 ) -> pd.DataFrame:
-    """Run a mesh convergence study at constant CFL (Section 8.11).
+    """Run a mesh convergence study at constant CFL (Section 8.12).
 
     For each resolution in *n_cells_list*, this function:
         1. Builds a ``SimulationConfig`` via *make_config(n_cells)*.
@@ -352,7 +352,7 @@ def errors_at_round_off(error_values: np.ndarray) -> bool:
 
 
 def estimate_order(dx_values: np.ndarray, error_values: np.ndarray) -> float:
-    """Estimate convergence order via least-squares fit in log-log space (Section 8.11).
+    """Estimate convergence order via least-squares fit in log-log space (Section 8.12).
 
     Fits the linear model ``log(err) = p * log(dx) + c`` using numpy's
     :func:`numpy.polyfit`.  The slope *p* is the estimated convergence order.

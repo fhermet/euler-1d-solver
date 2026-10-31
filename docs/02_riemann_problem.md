@@ -134,6 +134,18 @@ $$
 
 **Interprétation physique.** Les caractéristiques de la famille $k$ doivent **converger vers le choc** des deux côtés : les caractéristiques amont rattrapent le choc, et les caractéristiques aval sont rattrapées par le choc. Un choc est une compression : l'information « entre » dans le choc et ne peut pas en « sortir ». Un choc de détente (expansion), bien que mathématiquement possible, violerait cette condition et le second principe de la thermodynamique (l'entropie diminuerait).
 
+### Solutions faibles et choc de détente
+
+Une solution discontinue ne vérifie pas les équations d'Euler sous forme différentielle : on la définit comme **solution faible**, c'est-à-dire qu'elle vérifie la forme intégrale des lois de conservation sur tout volume de contrôle. Les relations de Rankine-Hugoniot en découlent directement. Mais les solutions faibles ne sont pas uniques. Pour deux états qu'une détente relie, un saut unique entre ces deux états, se propageant à la vitesse donnée par Rankine-Hugoniot, est aussi une solution faible : c'est un **choc de détente**. Il conserve masse, quantité de mouvement et énergie, mais fait décroître l'entropie physique
+
+$$
+s = c_v \ln\left(\frac{p}{\rho^\gamma}\right),
+$$
+
+ce que le second principe interdit. La condition d'entropie (de Lax, ou la croissance de $s$ à travers le choc) sélectionne la solution physique, ici l'éventail de détente.
+
+**Conséquence numérique.** Le théorème de Lax-Wendroff garantit qu'un schéma conservatif qui converge converge vers une solution faible, pas nécessairement vers la solution entropique. Le schéma de Roe en est l'exemple classique : dans une détente **transsonique**, où la vitesse caractéristique $u - a$ change de signe, la valeur propre de Roe à l'interface est proche de zéro et l'onde n'est presque pas dissipée. Le schéma peut alors garder un choc de détente stationnaire. La correction d'entropie de Harten-Hyman [Toro, 2009, §11.4.2] rétablit de la dissipation dans ce cas. Le cas test « Sonic rarefaction (Toro 1) » (§8.11) le montre : sans correction, le saut dans la détente reste à 0,12 quel que soit le maillage.
+
 ---
 
 ## §2.3 Ondes de détente (raréfaction)

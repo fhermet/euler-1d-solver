@@ -47,6 +47,7 @@ from euler1d.test_cases import (
     near_vacuum,
     shu_osher,
     sod_shock_tube,
+    sonic_rarefaction,
     stationary_contact,
     two_shocks,
 )
@@ -57,6 +58,7 @@ from euler1d.test_cases import (
 
 TEST_CASES = {
     "Sod shock tube": sod_shock_tube,
+    "Sonic rarefaction (Toro 1)": sonic_rarefaction,
     "Lax": lax_test,
     "Double rarefaction": double_rarefaction,
     "Stationary contact": stationary_contact,
@@ -85,6 +87,23 @@ TEST_CASE_INFO = {
         "structure": (
             "**Solution structure:** rarefaction wave on the left, "
             "contact discontinuity in the center, shock wave on the right."
+        ),
+    },
+    "Sonic rarefaction (Toro 1)": {
+        "description": (
+            "Toro's test 1, a modified Sod problem: left state "
+            "$(\\rho, u, p) = (1, 0.75, 1)$, right state $(0.125, 0, 0.1)$, "
+            "discontinuity at $x = 0.3$. The left rarefaction is transonic: "
+            "the characteristic speed $u - a$ changes sign inside the fan. "
+            "Compare Roe with and without entropy fix: without it, Roe keeps a "
+            "jump inside the fan, an expansion shock. It satisfies the "
+            "Rankine-Hugoniot relations but not the entropy condition, and it "
+            "does not shrink when N grows (jump in $\\rho$ of 0.13, 0.12, 0.12 "
+            "for N = 100, 200, 400). See docs §2.2 and §8.11."
+        ),
+        "structure": (
+            "**Solution structure:** transonic rarefaction on the left, contact "
+            "discontinuity, shock wave on the right."
         ),
     },
     "Lax": {

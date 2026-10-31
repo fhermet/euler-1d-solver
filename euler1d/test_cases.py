@@ -142,6 +142,43 @@ def double_rarefaction(n_cells: int = 200) -> SimulationConfig:
     )
 
 
+def sonic_rarefaction(n_cells: int = 100) -> SimulationConfig:
+    """Toro's test 1 -- modified Sod problem with a sonic rarefaction (Section 8.11).
+
+    Initial states: (rho, u, p)_L = (1, 0.75, 1), (rho, u, p)_R = (0.125, 0,
+    0.1), discontinuity at x = 0.3, t_final = 0.2.  The left-going
+    rarefaction is transonic: the characteristic speed u - a changes sign
+    inside the fan.
+
+    This is the case that shows an entropy violation.  Roe's linearisation
+    replaces the fan by a single wave of speed close to zero; without
+    entropy fix the scheme keeps a jump inside the fan, an expansion shock
+    that satisfies the Rankine-Hugoniot relations but not the entropy
+    condition (Toro 2009, 11.4).  The Harten-Hyman fix removes it.
+
+    Parameters
+    ----------
+    n_cells : int, optional
+        Number of mesh cells (default 100).
+
+    Returns
+    -------
+    SimulationConfig
+        Complete configuration with transmissive BC, t_final=0.2, gamma=1.4.
+    """
+    return SimulationConfig(
+        gas=GasProperties(gamma=1.4),
+        mesh=MeshConfig(x_min=0.0, x_max=1.0, n_cells=n_cells),
+        time=TimeConfig(t_final=0.2, cfl=0.9),
+        problem=RiemannProblem(
+            left=PrimitiveState(rho=1.0, u=0.75, p=1.0),
+            right=PrimitiveState(rho=0.125, u=0.0, p=0.1),
+            x_discontinuity=0.3,
+        ),
+        bc_type="transmissive",
+    )
+
+
 def stationary_contact(n_cells: int = 200) -> SimulationConfig:
     """Stationary contact discontinuity -- pure diffusion test (Section 8.4).
 

@@ -42,3 +42,22 @@ def test_high_order_runs_near_vacuum_cases_at_their_default_cfl(case, name):
     # 1991) and wenoz5-roe still fails on near_vacuum at CFL 0.5.
     result = run_simulation(case(200), get_scheme(name), n_snapshots=0)
     assert result.status == "ok"
+
+
+def test_roe_without_entropy_fix_shows_an_expansion_shock():
+    # Toro's test 1: the left rarefaction is transonic. Without entropy fix,
+    # Roe keeps a jump inside it (an expansion shock), which violates the
+    # entropy condition.
+    from euler1d.results import compute_exact_solution
+    from euler1d.test_cases import sonic_rarefaction
+    cfg = sonic_rarefaction(100)
+    exact = compute_exact_solution(cfg)["rho"].values
+    jump = lambda rho: np.abs(np.diff(rho[:50])).max()   # left half: the fan
+    no_fix = run_simulation(cfg, get_scheme("roe-nc"), n_snapshots=0).snapshots[-1][0]
+    fixed = run_simulation(cfg, get_scheme("roe"), n_snapshots=0).snapshots[-1][0]
+    assert jump(no_fix) > 2.5 * jump(fixed)
+    assert jump(fixed) < 1.5 * jump(exact)
+    # A genuine discontinuity: the jump does not shrink with the mesh.
+    fine = sonic_rarefaction(400)
+    no_fix_fine = run_simulation(fine, get_scheme("roe-nc"), n_snapshots=0).snapshots[-1][0]
+    assert np.abs(np.diff(no_fix_fine[:200])).max() > 0.1
