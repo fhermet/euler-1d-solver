@@ -164,7 +164,17 @@ ou $A_0 = \varepsilon$ est l'amplitude d'entree (verifiee par $\ell \cdot \varep
 
 $$\lvert G \rvert = \sqrt{\text{Re}(G)^2 + \text{Im}(G)^2}, \quad \varphi = \text{atan2}(\text{Im}(G),\, \text{Re}(G))$$
 
-**Etape 6 -- Post-traitement de la phase.** La phase est depliee avec `np.unwrap` pour eviter les sauts de $2\pi$. Le rapport de phase $\varphi_{\text{num}} / \varphi_{\text{exact}}$ est mis a `NaN` lorsque $\lvert G \rvert < 10^{-10}$ (mode trop amorti pour que la phase ait un sens physique) ou lorsque $\lvert \varphi_{\text{exact}} \rvert < 10^{-12}$ (mode quasi-stationnaire).
+**Etape 6 -- Post-traitement de la phase.** La phase est dépliée avec `np.unwrap` pour éviter les sauts de $2\pi$. Le rapport de phase $\varphi_{\text{num}} / \varphi_{\text{exact}}$ est mis à `NaN` dans trois cas :
+
+- $\theta = \pi$ : sur la grille, ce mode est une dent de scie stationnaire $(-1)^j$ ; $\sin(kx_j)$ et $\cos(kx_j)$ ne sont plus indépendants et la phase n'est pas définie. Pour Rusanov à CFL 0,5, le vrai $\lvert G(\pi) \rvert$ est nul et une phase calculée sur le résidu numérique donnait une valeur absurde en bout de courbe ;
+- $\lvert G \rvert < 10^{-4}$ : l'erreur de linéarisation sur $G$ est de l'ordre de $10^{-7}$ (perturbation $\varepsilon = 10^{-6}$), et l'erreur sur la phase croît comme ce bruit divisé par $\lvert G \rvert$ ;
+- $\lvert \varphi_{\text{exact}} \rvert < 10^{-12}$ (mode quasi stationnaire).
+
+**Vérification.** Pour Lax-Friedrichs, Lax-Wendroff et Rusanov (Euler explicite), $G$ est connu analytiquement. Par exemple, pour Rusanov, la dissipation se fait à la vitesse maximale $\lvert u_0 \rvert + c_0$ quelle que soit l'onde, d'où
+
+$$G(\theta) = 1 - \text{CFL}\,(1 - \cos\theta) - i\,\nu \sin\theta, \qquad \nu = \lambda \frac{\Delta t}{\Delta x}$$
+
+avec $\lambda$ la vitesse de l'onde excitée. Les tests (`tests/test_fourier.py`) vérifient que la méthode retrouve ces expressions à $10^{-6}$ près sur les trois modes.
 
 ---
 
@@ -178,6 +188,7 @@ $$\lvert G \rvert = \sqrt{\text{Re}(G)^2 + \text{Im}(G)^2}, \quad \varphi = \tex
 - **Schemas d'ordre eleve** (MUSCL, WENO) : $\lvert G \rvert$ reste proche de 1 jusqu'a des $\theta$ moderes, puis chute pour les hautes frequences. Le compromis est meilleur : les ondes physiques sont preservees, et seules les frequences mal resolues sont amorties.
 - **Instabilite** : si $\lvert G \rvert > 1$ pour un $\theta$ donne, le mode est amplifie a chaque pas de temps. Cela indique un schema instable pour ce CFL.
 - Une chute brutale a $\theta = \pi$ signifie que le schema ne resout que les basses frequences.
+- **Exemple d'instabilité** : ENO2 + RK2 sur l'onde acoustique droite est stable à CFL 0,5, mais pas au-delà : $\max \lvert G \rvert$ vaut 1,48 à CFL 0,6, 2,12 à 0,7 et 3,88 à 0,9, pour $\theta > 2{,}8$. La sélection de stencil d'ENO, non lisse, amplifie les hautes fréquences. C'est une confirmation indépendante du plafond CFL 0,5 des reconstructions (§6.1) ; la page permet de le reproduire en cochant « Ignore the scheme's CFL limit ».
 
 ### Courbe de dispersion $\varphi_{\text{num}} / \varphi_{\text{exact}}$
 
@@ -186,6 +197,13 @@ $$\lvert G \rvert = \sqrt{\text{Re}(G)^2 + \text{Im}(G)^2}, \quad \varphi = \tex
 - **Rapport $< 1$** : l'onde se propage trop lentement (**erreur de phase retardee**).
 - **Lax-Wendroff** : $\lvert G \rvert$ est proche de 1, mais le rapport de phase s'ecarte significativement de 1 aux hautes frequences. C'est la signature d'un schema **dispersif** : il ne dissipe pas les ondes mais les fait voyager a la mauvaise vitesse, ce qui genere des oscillations en amont et en aval des discontinuites.
 - **Schemas d'ordre eleve** : le rapport de phase reste proche de 1 sur une plage de $\theta$ d'autant plus large que l'ordre est eleve.
+
+### Limites de l'analyse linéaire
+
+- **WENO est analysé dans son régime lisse.** Avec une perturbation d'amplitude $10^{-6}$, les indicateurs de régularité $\beta_k$ sont très inférieurs au paramètre $\varepsilon$ des poids : les poids prennent leurs valeurs idéales et les courbes sont celles du schéma linéaire sous-jacent (décentré d'ordre 5 pour WENO5). C'est le comportement de WENO dans les zones régulières, pas près des discontinuités.
+- **Les limiteurs sont non linéaires**, mais homogènes de degré 1 (ils dépendent de rapports de différences) : le résultat ne dépend pas de l'amplitude. En revanche le limiteur écrête le cosinus à ses extrema ; $G$ mesure la réponse sur le mode fondamental seulement.
+- **Stabilité linéaire et propriété TVD sont deux choses distinctes.** MUSCL à CFL 0,9 a $\lvert G \rvert \leq 1$ pour tout $\theta$, et pourtant il n'est pas TVD à ce CFL : sur le cas de Shu-Osher, il laisse croître le bruit d'arrondi jusqu'à des écarts de 0,4 (§6.1). L'analyse de Fourier ne voit pas ce défaut, propre au comportement non linéaire du limiteur.
+- **Le CFL analysé** est par défaut celui que le solveur utiliserait : le CFL demandé, plafonné par `max_cfl` (0,5 pour les reconstructions).
 
 ### Signatures typiques
 
@@ -202,31 +220,26 @@ $$\lvert G \rvert = \sqrt{\text{Re}(G)^2 + \text{Im}(G)^2}, \quad \varphi = \tex
 
 L'implementation se trouve dans le module `euler1d/fourier_analysis.py`. Deux fonctions principales :
 
-### `_single_step(U, scheme, gas, dx, dt)`
+### `_single_step(U, scheme, gas, dx, dt, rk)`
 
-Avance l'etat $U$ d'un pas de temps en utilisant l'integrateur temporel par defaut du schema. Cette fonction reproduit la boucle Runge-Kutta complete (et non seulement l'operateur spatial) car l'analyse de Fourier doit mesurer le comportement du schema complet, integration temporelle incluse. Les cinq methodes RK sont supportees :
+Avance l'état $U$ d'un pas de temps complet sur un domaine périodique, avec la même fonction `_rk_step` que le solveur. L'analyse doit mesurer le schéma complet, intégration temporelle incluse, car l'intégrateur modifie à la fois $\lvert G \rvert$ et la phase.
 
-| Methode | Etages | Schemas concernes |
-|---------|--------|-------------------|
-| RK1 | 1 | Euler explicite, Lax-Wendroff |
-| RK2 | 2 | MUSCL, ENO2 |
-| RK3 (SSP) | 3 | WENO3 |
-| RK4 | 4 | JST |
-| RK5 (Dormand-Prince) | 6 | WENO5 |
+### `compute_amplification(scheme, cfl, n_cells, gamma, n_modes, wave_type, time_integrator, respect_cfl_limit)`
 
-### `compute_amplification(scheme, cfl, n_cells, gamma, n_modes, wave_type)`
+Calcule le facteur d'amplification $G(\theta)$ pour un schéma donné en utilisant la technique à double perturbation décrite en [section 7.4](#74-methodologie-dextraction). Paramètres principaux :
 
-Calcule le facteur d'amplification $G(\theta)$ pour un schema donne en utilisant la technique a double perturbation decrite en [section 7.4](#74-methodologie-dextraction). Parametres principaux :
+- `wave_type` : `"entropy"` (onde de densité à vitesse $u_0$), `"acoustic"` (onde acoustique droite, $u_0 + c_0$) ou `"acoustic-left"` (onde acoustique gauche, $u_0 - c_0 \approx -0{,}18$, quasi sonique).
+- `time_integrator` : méthode RK (`"RK1"` à `"RK5"`) ; par défaut celle du schéma (RK1 pour l'ordre 1, RK2 pour MUSCL et ENO2, SSP-RK3 pour WENO, RK4 pour JST). Lax-Wendroff utilise toujours RK1.
+- `respect_cfl_limit` : si vrai (défaut), le CFL est plafonné par `scheme.max_cfl` comme dans le solveur.
+- `n_cells` : nombre de cellules du maillage périodique (256 par défaut).
+- `n_modes` : nombre de modes de Fourier analysés (de $m = 1$ à $m = n_{\text{modes}}$).
 
-- `wave_type` : `"entropie"` (onde de densite a vitesse $u_0$) ou `"acoustique"` (onde acoustique droite a vitesse $u_0 + c_0$).
-- `n_cells` : nombre de cellules du maillage periodique (256 par defaut).
-- `n_modes` : nombre de modes de Fourier analyses (de $m = 1$ a $m = n_{\text{modes}}$).
+Le dictionnaire retourné contient :
 
-Le dictionnaire retourne contient :
-
-- `theta` : tableau des nombres d'onde reduits $\theta = 2\pi m / N$.
-- `abs_G` : tableau des $\lvert G(\theta) \rvert$ (dissipation).
-- `phase_ratio` : tableau des $\varphi_{\text{num}} / \varphi_{\text{exact}}$ (dispersion, `NaN` si le mode est trop amorti).
+- `theta` : tableau des nombres d'onde réduits $\theta = 2\pi m / N$.
+- `abs_G` : tableau des $\lvert G(\theta) \rvert$ (dissipation ; $> 1$ : instabilité).
+- `phase_ratio` : tableau des $\varphi_{\text{num}} / \varphi_{\text{exact}}$ (dispersion ; `NaN` dans les cas de l'étape 6).
+- `cfl`, `time_integrator` : CFL et intégrateur effectivement utilisés.
 
 ---
 
