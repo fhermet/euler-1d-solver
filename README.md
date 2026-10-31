@@ -38,9 +38,9 @@ request (GitHub Actions, `.github/workflows/tests.yml`).
 ```
 Solveur_Euler_1D.py    Streamlit entry point: navigation between the three pages
 ui_common.py           Plotly styling, constants, shared scheme selectors
-ui_walkthrough.py      Plotly figures of the finite-volume walkthrough
+ui_walkthrough.py      Plotly figures of the eight walkthrough screens
 pages/
-├── finite_volumes.py       Home page: the finite-volume method step by step (French)
+├── finite_volumes.py       Home page: the finite-volume method in eight screens (French)
 ├── solver.py               Solver: scheme comparison, convergence, animation
 └── 2_Fourier_Analysis.py   Numerical dissipation and dispersion
 tests/                 pytest suite
@@ -49,7 +49,8 @@ euler1d/
 ├── config.py          Configuration dataclasses (gas, mesh, time, problem)
 ├── physics.py         EOS, primitive/conservative conversions, physical flux
 ├── riemann.py         Exact Riemann solver (vectorized NumPy)
-├── fv_walkthrough.py  Quantities shown by the walkthrough page
+├── advection.py       Square-wave advection of the walkthrough (screens 1-6)
+├── fv_walkthrough.py  Sod quantities of the walkthrough (screens 7-8)
 ├── boundary.py        Boundary conditions (ghost cells)
 ├── solver.py          Time-stepping loop (RK1 to RK5), CFL capped per scheme
 ├── results.py         Exact solution, error norms, convergence
@@ -114,14 +115,19 @@ MUSCL limiters: `minmod`, `van-leer` (default), `superbee`, `mc`, `van-albada`.
 
 ### Home page: Comprendre les volumes finis (in French)
 
-A step-by-step walkthrough of one time step of the solver on the Sod shock
-tube, on a small mesh (8 to 32 cells): cell averages, reconstruction at the
-interfaces, local Riemann problem with the flux's wave model, numerical
-fluxes (centred average minus dissipation), cell update with the global
-balance, Runge-Kutta stages and CFL time step. Flux, reconstruction,
-integrator and CFL are adjustable, and the state can be advanced step by
-step. Every number comes from the solver's own functions
-(`euler1d/fv_walkthrough.py`).
+Eight short screens, each asking one question and showing one graph with one
+annotated bubble, two sentences of explanation and one thing to try.
+
+1. Advection of a square wave (`u_t + a u_x = 0`, periodic, 40 cells), to show
+   the whole mechanism: the exact solution, cell averages, the balance of one
+   cell, the face value (upwind against centred), the CFL number (exact at 1,
+   explosion above), slopes with and without a limiter
+   (`euler1d/advection.py`).
+2. Back to Euler on Sod: the three waves leaving a face in the (x, t) plane,
+   against the waves HLL and HLLC model, then the width of the contact for
+   Rusanov, HLL and HLLC at t = 0.2 (`euler1d/fv_walkthrough.py`).
+
+Settings are kept when moving between screens and pages.
 
 ### Page: Solver
 
