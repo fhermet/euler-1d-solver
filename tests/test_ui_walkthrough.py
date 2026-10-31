@@ -72,3 +72,23 @@ def test_reconstruction_marks_flat_cells():
     fig = fig_reconstruction(x, dx, U, UL, UR, flat_cells(U, scheme, GAMMA, dx, 0), 0, GAMMA,
                              True, None)
     assert any(t.name == "pente annulée" for t in fig.data)
+
+
+def test_cell_content_shaded_only_for_density():
+    cfg = sod_setup(16, 0.9)
+    U = initial_state(cfg)[1]
+    x = (np.arange(16) + 0.5) * cfg.mesh.dx
+    names = lambda fig: [t.name for t in fig.data]
+    assert "contenu de la maille" in names(fig_averages(x, cfg.mesh.dx, U, 0, GAMMA, None))
+    assert "contenu de la maille" not in names(fig_averages(x, cfg.mesh.dx, U, 1, GAMMA, None))
+
+
+def test_riemann_diagram_shows_every_wave_within_one_step():
+    # At the Sod start-up the exact shock (1.75) is faster than the cell
+    # speeds used for dt (1.18): it travels 1.33 dx in one step.
+    WL, WR = (1.0, 0.0, 1.0), (0.125, 0.0, 0.1)
+    dx, dt = 1 / 16, 0.9 / 16 / np.sqrt(1.4)
+    waves = exact_waves(WL, WR, GAMMA)
+    fig = fig_riemann(WL, WR, waves, None, dx, dt, 0)
+    fastest = max(abs(s) for w in waves for s in w.speeds) * dt
+    assert fig.layout.xaxis2.range[1] >= fastest

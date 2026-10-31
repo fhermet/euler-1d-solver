@@ -13,6 +13,9 @@ from ui_common import COLORS, THESIS_LAYOUT, thesis_axis
 VAR_NAMES = ["ρ", "u", "p"]
 COMPONENT_NAMES = ["masse", "quantité de mouvement", "énergie"]
 GREY = "#9a9a9a"
+_HOVER = ("ρ = %{customdata[0]:.4f}, ρu = %{customdata[1]:.4f}, E = %{customdata[2]:.4f}<br>"
+          "ρ = %{customdata[3]:.4f}, u = %{customdata[4]:.4f}, p = %{customdata[5]:.4f}"
+          "<extra></extra>")
 
 
 def _prim(U: np.ndarray, gamma: float) -> np.ndarray:
@@ -46,19 +49,18 @@ def _face_lines(fig, x, dx, row=None, col=None):
 
 
 def fig_averages(x, dx, U, var, gamma, exact) -> go.Figure:
-    """Step 1: cell averages as plateaus, shaded area under each one."""
+    """Step 1: cell averages as plateaus; for rho, the shaded area is the cell content."""
     W = _prim(U, gamma)
     custom = np.column_stack([U[0], U[1], U[2], W[0], W[1], W[2]])
     fig = go.Figure()
     _face_lines(fig, x, dx)
-    fig.add_trace(go.Bar(
-        x=x, y=W[var], width=dx, name="contenu de la maille",
-        marker=dict(color=COLORS[0], opacity=0.18, line=dict(width=0)),
-        customdata=custom,
-        hovertemplate=("ρ = %{customdata[0]:.4f}, ρu = %{customdata[1]:.4f}, "
-                       "E = %{customdata[2]:.4f}<br>ρ = %{customdata[3]:.4f}, "
-                       "u = %{customdata[4]:.4f}, p = %{customdata[5]:.4f}<extra></extra>"),
-    ))
+    if var == 0:   # the area is a conserved content only for the density
+        fig.add_trace(go.Bar(x=x, y=W[var], width=dx, name="contenu de la maille",
+                             marker=dict(color=COLORS[0], opacity=0.18, line=dict(width=0)),
+                             hoverinfo="skip"))
+    fig.add_trace(go.Scatter(x=x, y=W[var], mode="markers", marker=dict(size=14, opacity=0),
+                             customdata=custom, showlegend=False,
+                             hovertemplate=_HOVER))
     fig.add_trace(_plateaus(x, dx, W[var], "moyennes de maille", COLORS[0]))
     if exact is not None:
         fig.add_trace(_plateaus(x, dx, exact, "solution exacte", GREY, "dot", 1.2))
@@ -151,8 +153,10 @@ def fig_riemann(WL, WR, waves: list[Wave], model, dx, dt, var) -> go.Figure:
     fig.add_vline(x=0, line=dict(color=COLORS[2], width=2), row=1, col=2)
     fig.add_shape(type="rect", x0=-dx, x1=dx, y0=0, y1=dt, line=dict(color=COLORS[4], dash="dash"),
                   row=1, col=2)
-    fig.update_xaxes(thesis_axis(title_text="x − x_interface"), range=[-1.3 * dx, 1.3 * dx],
-                     row=1, col=2)
+    speeds = [abs(s) for w in waves for s in w.speeds] + [abs(s) for s in (model or [])]
+    half_width = max(1.3 * dx, 1.1 * max(speeds, default=0.0) * dt)
+    fig.update_xaxes(thesis_axis(title_text="x − x_interface"),
+                     range=[-half_width, half_width], row=1, col=2)
     fig.update_yaxes(thesis_axis(title_text="t"), range=[0, 1.05 * dt], row=1, col=2)
     return _finish(fig, 460)
 
