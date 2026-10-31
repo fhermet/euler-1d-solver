@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from euler1d.config import RiemannProblem, SimulationConfig, SmoothProblem
-from euler1d.physics import conservative_to_primitive, sound_speed
+from euler1d.physics import cell_average, conservative_to_primitive, sound_speed
 from euler1d.riemann import sample_riemann
 from euler1d.solver import SolverResult, run_simulation
 
@@ -87,7 +87,12 @@ def compute_exact_solution(config: SimulationConfig) -> pd.DataFrame:
     x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
 
     if isinstance(prob, SmoothProblem):
-        rho, u, p = prob.exact_fn(x, config.time.t_final, gas.gamma)
+        # Cell averages, like the numerical solution (see physics.cell_average).
+        t = config.time.t_final
+        rho, u, p = conservative_to_primitive(
+            cell_average(lambda s: prob.exact_fn(s, t, gas.gamma), x, dx, gas.gamma),
+            gas.gamma,
+        )
     else:
         rho, u, p = sample_riemann(
             x, config.time.t_final,

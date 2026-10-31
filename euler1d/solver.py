@@ -35,6 +35,7 @@ import numpy as np
 from euler1d.boundary import apply_boundary_conditions
 from euler1d.config import RiemannProblem, SimulationConfig, SmoothProblem
 from euler1d.physics import (
+    cell_average,
     conservative_to_primitive,
     max_wave_speed,
     primitive_to_conservative,
@@ -147,6 +148,24 @@ def _compute_rhs(
 
 
 TIME_INTEGRATORS = ("RK1", "RK2", "RK3", "RK4", "RK5")
+
+
+def initial_state(config: SimulationConfig) -> tuple[np.ndarray, np.ndarray]:
+    """Cell centres and initial cell averages U(3, N).
+
+    Smooth problems are averaged over each cell by Gauss quadrature.  For a
+    Riemann problem the cell that contains the discontinuity mixes the two
+    states in proportion to its length on each side.
+    """
+    mesh, gamma, prob = config.mesh, config.gas.gamma, config.problem
+    dx = mesh.dx
+    x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
+    if isinstance(prob, SmoothProblem):
+        return x, cell_average(lambda s: prob.init_fn(s, gamma), x, dx, gamma)
+    UL = primitive_to_conservative(prob.left.rho, prob.left.u, prob.left.p, gamma)
+    UR = primitive_to_conservative(prob.right.rho, prob.right.u, prob.right.p, gamma)
+    left_fraction = np.clip((prob.x_discontinuity - (x - 0.5 * dx)) / dx, 0.0, 1.0)
+    return x, left_fraction * UL[:, None] + (1.0 - left_fraction) * UR[:, None]
 
 # Positivity floor on density and internal energy (see run_simulation).
 _FLOOR = 1e-10
@@ -279,16 +298,7 @@ def run_simulation(
         )
 
     dx = mesh.dx
-    x = np.linspace(mesh.x_min + 0.5 * dx, mesh.x_max - 0.5 * dx, mesh.n_cells)
-
-    # Initial conditions
-    if isinstance(prob, SmoothProblem):
-        rho, u, p = prob.init_fn(x, gas.gamma)
-    else:
-        rho = np.where(x < prob.x_discontinuity, prob.left.rho, prob.right.rho)
-        u = np.where(x < prob.x_discontinuity, prob.left.u, prob.right.u)
-        p = np.where(x < prob.x_discontinuity, prob.left.p, prob.right.p)
-    U = primitive_to_conservative(rho, u, p, gas.gamma)
+    x, U = initial_state(config)
 
     t = 0.0
     t_final = tc.t_final

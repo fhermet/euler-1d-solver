@@ -469,3 +469,70 @@ def acoustic_wave(n_cells: int = 200, epsilon: float = 1e-4) -> SimulationConfig
         problem=SmoothProblem(init_fn=init_fn, exact_fn=exact_fn, label="acoustic_wave"),
         bc_type="periodic",
     )
+
+
+def isentropic_wave(n_cells: int = 200, epsilon: float = 0.2) -> SimulationConfig:
+    """Isentropic simple wave of finite amplitude, before shock formation (Section 8.10).
+
+    Initial condition on [0, 1], periodic:
+        rho = 1 + epsilon*sin(2*pi*x),  p = rho**gamma,
+        u = 2/(gamma-1) * (a - a_ref),  a = sqrt(gamma*p/rho),  a_ref = sqrt(gamma).
+
+    The left-going Riemann invariant u - 2a/(gamma-1) is uniform, so the flow
+    is a right-going simple wave: u and a are constant along the
+    characteristics dx/dt = u + a.  Since u + a varies with x, the profile
+    steepens and a shock forms at t_s = -1 / min(d(u+a)/dx) (about 0.55 for
+    epsilon = 0.2).  At t_final = 0.2 the solution is still smooth.
+
+    Unlike the entropy and acoustic waves, rho, u and p all vary with a large
+    amplitude and the problem is fully nonlinear: it is the case that shows
+    whether a scheme of order above 2 keeps its order (see the choice of
+    reconstructed variables, docs/05_reconstruction.md, section 5.5).
+
+    The exact solution is obtained by solving x = x0 + (u + a)(x0) t for the
+    foot x0 of the characteristic (Newton iteration).
+
+    Parameters
+    ----------
+    n_cells : int, optional
+        Number of mesh cells (default 200).
+    epsilon : float, optional
+        Density amplitude (default 0.2).
+
+    Returns
+    -------
+    SimulationConfig
+        Complete configuration with periodic BC, t_final=0.2, gamma=1.4.
+    """
+
+    def initial(x, gamma):
+        rho = 1.0 + epsilon * np.sin(2.0 * np.pi * x)
+        a = np.sqrt(gamma) * rho ** (0.5 * (gamma - 1.0))
+        u = 2.0 / (gamma - 1.0) * (a - np.sqrt(gamma))
+        return rho, u, rho**gamma, a
+
+    def init_fn(x, gamma):
+        rho, u, p, _ = initial(x, gamma)
+        return rho, u, p
+
+    def exact_fn(x, t, gamma):
+        x = np.asarray(x, dtype=float)
+        x0 = x.copy()
+        for _ in range(100):
+            rho, u, _, a = initial(x0, gamma)
+            drho = 2.0 * np.pi * epsilon * np.cos(2.0 * np.pi * x0)
+            dlam = 0.5 * (gamma + 1.0) * np.sqrt(gamma) * rho ** (0.5 * (gamma - 3.0)) * drho
+            step = (x0 + (u + a) * t - x) / (1.0 + dlam * t)
+            x0 = x0 - step
+            if np.abs(step).max() < 1e-15:
+                break
+        rho, u, p, _ = initial(x0, gamma)
+        return rho, u, p
+
+    return SimulationConfig(
+        gas=GasProperties(gamma=1.4),
+        mesh=MeshConfig(x_min=0.0, x_max=1.0, n_cells=n_cells),
+        time=TimeConfig(t_final=0.2, cfl=0.9),
+        problem=SmoothProblem(init_fn=init_fn, exact_fn=exact_fn, label="isentropic_wave"),
+        bc_type="periodic",
+    )
