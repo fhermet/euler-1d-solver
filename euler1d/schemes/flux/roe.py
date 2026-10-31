@@ -85,6 +85,18 @@ def _roe_common(UL, UR, gas):
     }
 
 
+def roe_eigenvalues(
+    UL: np.ndarray, UR: np.ndarray, gas: GasProperties
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Signed eigenvalues (u - a, u, u + a) of the Roe-averaged Jacobian.
+
+    These are the wave speeds of Roe's linearised Riemann problem. The
+    entropy fix changes |lambda| in the dissipation, not these speeds.
+    """
+    d = _roe_common(UL, UR, gas)
+    return d["lam1"], d["lam2"], d["lam3"]
+
+
 def _roe_flux(FL, FR, u_roe, H_roe, a_roe, lam1, lam2, lam3, alpha1, alpha2, alpha3):
     """Assemble the Roe flux from corrected absolute eigenvalues."""
     n_intf = FL.shape[1]

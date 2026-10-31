@@ -105,3 +105,34 @@ def test_godunov_flux_is_nan_for_unphysical_input():
     UR = primitive_to_conservative(np.array([1.0]), np.array([0.0]), np.array([1.0]), GAMMA)
     F = get_scheme("godunov").compute_riemann_flux(UL, UR, GAS, 1.0, 1.0)
     assert np.isnan(F).all()
+
+
+from euler1d.schemes.flux.hll import davis_speeds
+from euler1d.schemes.flux.roe import roe_eigenvalues
+from euler1d.schemes.flux.rusanov import max_speed
+
+
+def test_hll_flux_from_exposed_speeds():
+    (UL, UR), _ = _random_states(300, 3)
+    SL, SR = davis_speeds(UL, UR, GAMMA)
+    FL, FR = compute_flux(UL, GAMMA), compute_flux(UR, GAMMA)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mid = (SR * FL - SL * FR + SL * SR * (UR - UL)) / (SR - SL)
+    expected = np.where(SL >= 0, FL, np.where(SR <= 0, FR, mid))
+    np.testing.assert_array_equal(
+        get_scheme("hll").compute_riemann_flux(UL, UR, GAS, 1.0, 1.0), expected)
+
+
+def test_rusanov_flux_from_max_speed():
+    (UL, UR), _ = _random_states(300, 4)
+    FL, FR = compute_flux(UL, GAMMA), compute_flux(UR, GAMMA)
+    expected = 0.5 * (FL + FR) - 0.5 * max_speed(UL, UR, GAMMA) * (UR - UL)
+    np.testing.assert_array_equal(
+        get_scheme("rusanov").compute_riemann_flux(UL, UR, GAS, 1.0, 1.0), expected)
+
+
+def test_roe_eigenvalues_are_u_minus_a_u_u_plus_a():
+    U = primitive_to_conservative(np.array([1.0]), np.array([0.3]), np.array([1.0]), GAMMA)
+    lam1, lam2, lam3 = roe_eigenvalues(U, U, GAS)
+    a = np.sqrt(GAMMA)
+    np.testing.assert_allclose([lam1[0], lam2[0], lam3[0]], [0.3 - a, 0.3, 0.3 + a], atol=1e-14)

@@ -36,16 +36,20 @@ request (GitHub Actions, `.github/workflows/tests.yml`).
 ## Code architecture
 
 ```
-Solveur_Euler_1D.py    Streamlit entry point (main page)
+Solveur_Euler_1D.py    Streamlit entry point: navigation between the three pages
 ui_common.py           Plotly styling, constants, shared scheme selectors
+ui_walkthrough.py      Plotly figures of the finite-volume walkthrough
 pages/
-└── 2_Fourier_Analysis.py   Streamlit page: numerical dissipation and dispersion
+├── finite_volumes.py       Home page: the finite-volume method step by step (French)
+├── solver.py               Solver: scheme comparison, convergence, animation
+└── 2_Fourier_Analysis.py   Numerical dissipation and dispersion
 tests/                 pytest suite
 
 euler1d/
 ├── config.py          Configuration dataclasses (gas, mesh, time, problem)
 ├── physics.py         EOS, primitive/conservative conversions, physical flux
 ├── riemann.py         Exact Riemann solver (vectorized NumPy)
+├── fv_walkthrough.py  Quantities shown by the walkthrough page
 ├── boundary.py        Boundary conditions (ghost cells)
 ├── solver.py          Time-stepping loop (RK1 to RK5), CFL capped per scheme
 ├── results.py         Exact solution, error norms, convergence
@@ -108,7 +112,18 @@ MUSCL limiters: `minmod`, `van-leer` (default), `superbee`, `mc`, `van-albada`.
 
 ## Streamlit interface
 
-### Main page: 1D Euler Solver
+### Home page: Comprendre les volumes finis (in French)
+
+A step-by-step walkthrough of one time step of the solver on the Sod shock
+tube, on a small mesh (8 to 32 cells): cell averages, reconstruction at the
+interfaces, local Riemann problem with the flux's wave model, numerical
+fluxes (centred average minus dissipation), cell update with the global
+balance, Runge-Kutta stages and CFL time step. Flux, reconstruction,
+integrator and CFL are adjustable, and the state can be advanced step by
+step. Every number comes from the solver's own functions
+(`euler1d/fv_walkthrough.py`).
+
+### Page: Solver
 
 | Tab | Description |
 |---|---|

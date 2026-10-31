@@ -33,8 +33,21 @@ from __future__ import annotations
 import numpy as np
 
 from euler1d.config import GasProperties
-from euler1d.physics import compute_flux, conservative_to_primitive, sound_speed
+from euler1d.physics import compute_flux, conservative_to_primitive
+from euler1d.schemes.flux.hll import davis_speeds
 from euler1d.schemes.base import NumericalScheme
+
+
+def contact_speed(
+    UL: np.ndarray, UR: np.ndarray, gamma: float, SL: np.ndarray, SR: np.ndarray
+) -> np.ndarray:
+    """HLLC contact wave speed S*, from momentum conservation across S_L and S_R."""
+    rhoL, uL, pL = conservative_to_primitive(UL, gamma)
+    rhoR, uR, pR = conservative_to_primitive(UR, gamma)
+    return (
+        (pR - pL + rhoL * uL * (SL - uL) - rhoR * uR * (SR - uR))
+        / (rhoL * (SL - uL) - rhoR * (SR - uR))
+    )
 
 
 class HLLC(NumericalScheme):
@@ -75,18 +88,9 @@ class HLLC(NumericalScheme):
 
         rhoL, uL, pL = conservative_to_primitive(UL, gas.gamma)
         rhoR, uR, pR = conservative_to_primitive(UR, gas.gamma)
-        aL = sound_speed(rhoL, pL, gas.gamma)
-        aR = sound_speed(rhoR, pR, gas.gamma)
 
-        # Davis estimates
-        SL = np.minimum(uL - aL, uR - aR)
-        SR = np.maximum(uL + aL, uR + aR)
-
-        # Contact wave speed S*
-        S_star = (
-            (pR - pL + rhoL * uL * (SL - uL) - rhoR * uR * (SR - uR))
-            / (rhoL * (SL - uL) - rhoR * (SR - uR))
-        )
+        SL, SR = davis_speeds(UL, UR, gas.gamma)
+        S_star = contact_speed(UL, UR, gas.gamma, SL, SR)
 
         # Star fluxes F*_K = F_K + S_K (U*_K - U_K), K = L, R.  Where a branch
         # is not selected its value may be meaningless (division by zero when
