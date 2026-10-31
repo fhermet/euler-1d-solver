@@ -139,7 +139,7 @@ $$
 
 Ces variables sont dites **primitives** car elles correspondent aux grandeurs physiques directement mesurables : densité, vitesse, pression. Elles sont préférables pour :
 
-- la **reconstruction spatiale** (MUSCL, ENO, WENO) : les variables primitives varient de manière plus régulière que les variables conservatives au voisinage des discontinuités, ce qui produit des reconstructions mieux conditionnées,
+- la **reconstruction spatiale** (MUSCL, ENO, WENO) : les variables primitives varient de manière plus régulière que les variables conservatives au voisinage des discontinuités, ce qui produit des reconstructions mieux conditionnées (c'est le choix par défaut ; ses limites et les autres choix sont discutés au §5.6),
 - la **spécification des conditions initiales** et aux limites (on prescrit naturellement $\rho$, $u$, $p$),
 - l'**interprétation physique** des résultats.
 
@@ -326,10 +326,12 @@ Une détente est une onde **continue et lisse** (fan de raréfaction). Elle appa
 - l'entropie est **constante** (processus isentropique),
 - la solution est **auto-similaire** : elle ne dépend que du rapport $x/t$.
 
-Les invariants de Riemann à travers une détente sont :
+Les quantités $J^\pm = u \pm \frac{2a}{\gamma - 1}$ sont transportées le long des caractéristiques $C^\pm$ : $\mathrm{d}x/\mathrm{d}t = u \pm a$. À travers une détente, c'est l'invariant de **l'autre** famille qui reste constant, car ses caractéristiques traversent l'éventail en venant de l'état non perturbé :
 
-- 1er champ : $u + \frac{2a}{\gamma - 1} = \text{const}$ (invariant de Riemann le long de $\lambda_1$),
-- 3e champ : $u - \frac{2a}{\gamma - 1} = \text{const}$ (invariant de Riemann le long de $\lambda_3$).
+- détente du 1er champ ($\lambda_1 = u - a$, détente gauche) : $J^+ = u + \frac{2a}{\gamma - 1}$ est constant à travers l'éventail ; il est transporté par les caractéristiques $C^+$, qui le traversent ;
+- détente du 3e champ ($\lambda_3 = u + a$, détente droite) : $J^- = u - \frac{2a}{\gamma - 1}$ est constant à travers l'éventail, transporté par les caractéristiques $C^-$.
+
+Une onde simple qui se propage vers la droite (famille 3) a donc $J^-$ uniforme : c'est le cas de l'onde isentrope du §8.10.
 
 ### Champ linéairement dégénéré (onde entropique)
 

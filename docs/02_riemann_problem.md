@@ -144,8 +144,8 @@ Contrairement aux chocs, les détentes sont des ondes **continues et lisses**. E
 
 Les **invariants de Riemann** sont des quantités qui restent constantes le long des courbes caractéristiques d'une famille donnée :
 
-- **1er champ** ($\lambda_1 = u - a$) : l'invariant $u + \frac{2a}{\gamma - 1}$ est constant le long des caractéristiques de la famille 1 (celles qui traversent la détente gauche sans y appartenir).
-- **3e champ** ($\lambda_3 = u + a$) : l'invariant $u - \frac{2a}{\gamma - 1}$ est constant le long des caractéristiques de la famille 3.
+- $J^+ = u + \frac{2a}{\gamma - 1}$ est constant le long des caractéristiques $C^+$ ($\mathrm{d}x/\mathrm{d}t = u + a$). Ces caractéristiques traversent la détente gauche (1er champ, $\lambda_1 = u - a$) sans lui appartenir : $J^+$ est donc constant à travers cette détente.
+- $J^- = u - \frac{2a}{\gamma - 1}$ est constant le long des caractéristiques $C^-$ ($\mathrm{d}x/\mathrm{d}t = u - a$), qui traversent la détente droite (3e champ, $\lambda_3 = u + a$) : $J^-$ est constant à travers cette détente.
 
 **Interprétation physique.** L'invariant de Riemann relie la vitesse $u$ et la vitesse du son $a$ (donc la pression, via l'isentropie). Il exprime une **relation de compatibilité** entre les variations de vitesse et de pression à travers l'onde : lorsque la pression diminue (détente), la vitesse augmente, et vice versa. Le facteur $2/(\gamma - 1)$ quantifie le « taux de change » entre vitesse et vitesse du son, et dépend de la rigidité du gaz.
 
@@ -387,7 +387,7 @@ $$
 
 **Interprétation physique.** Le membre de gauche est la vitesse de séparation des deux fluides. Le membre de droite $\frac{2}{\gamma - 1}(a_L + a_R)$ est la **vitesse maximale de détente** : c'est la vitesse maximale que les détentes gauche et droite peuvent communiquer au fluide. Si la séparation excède cette vitesse maximale, une zone de vide (pression nulle) se forme au centre.
 
-Lorsque cette condition est détectée, le solveur lève une erreur, car le modèle du gaz parfait ne décrit pas le vide.
+Lorsque cette condition est remplie, il n'existe pas de pression $p^\ast$ positive : `solve_p_star` lève une erreur. L'échantillonnage de la solution (`sample_riemann`, et le flux de Godunov) utilise alors la solution avec zone de vide [Toro, 2009, §4.6.3] : deux détentes dont les queues, aux vitesses $u_L + \frac{2 a_L}{\gamma - 1}$ et $u_R - \frac{2 a_R}{\gamma - 1}$, bordent une région où $\rho = p = 0$.
 
 ---
 
@@ -473,9 +473,9 @@ Dans l'implémentation, l'échantillonnage est **vectorisé** : au lieu de boucl
 
 1. **Solution de référence.** Le solveur exact fournit la solution analytique du problème de Riemann, sans aucune approximation. C'est la référence absolue pour valider les schémas numériques et quantifier leurs erreurs (dissipation, dispersion, oscillations).
 
-2. **Schéma de Godunov.** Le solveur exact peut être utilisé comme flux numérique dans le schéma de Godunov (cf. Chapitre 3). Ce schéma résout un problème de Riemann exact à chaque interface à chaque pas de temps. C'est le schéma de volumes finis « idéal » au sens où il capture parfaitement la physique des ondes aux interfaces.
+2. **Schéma de Godunov.** Le solveur exact peut être utilisé comme flux numérique dans le schéma de Godunov (cf. Chapitre 3). Ce schéma résout un problème de Riemann exact à chaque interface à chaque pas de temps. Le flux est exact pour les états donnés, mais le schéma reste d'ordre 1 : la reconstruction constante par morceaux et la projection sur les moyennes de maille diffusent les discontinuités. Sur le tube de Sod (200 mailles), son erreur $L_1$ sur $\rho$ (0,0088) est à peine inférieure à celle de HLLC (0,0092), pour un coût environ cinq fois plus élevé (§4.1).
 
-3. **Robustesse.** L'itération de Newton converge de manière fiable pour tous les cas physiquement admissibles (pressions et densités positives, pas de vide). La détection du vide évite les divergences.
+3. **Robustesse.** L'itération de Newton converge de manière fiable pour tous les cas physiquement admissibles (pressions et densités positives). Lorsque les données engendrent du vide, la solution avec zone de vide est utilisée (§2.6).
 
 ### Inconvénients
 

@@ -4,11 +4,11 @@
 
 ## Introduction
 
-Le chapitre 3 a montré que le cœur de la méthode des volumes finis est le **flux numérique** $\hat{\mathbf{F}}_{i+1/2} = \hat{\mathbf{F}}(\mathbf{U}_L, \mathbf{U}_R)$ à chaque interface. Ce chapitre détaille les huit schémas de flux implémentés dans le code, tous autonomes (reconstruction constante par morceaux, donc d'ordre 1 en espace — sauf Lax-Wendroff et JST qui sont intrinsèquement d'ordre 2).
+Le chapitre 3 a montré que le cœur de la méthode des volumes finis est le **flux numérique** $\hat{\mathbf{F}}_{i+1/2} = \hat{\mathbf{F}}(\mathbf{U}_L, \mathbf{U}_R)$ à chaque interface. Ce chapitre détaille les onze schémas de flux implémentés dans le code, tous autonomes (reconstruction constante par morceaux, donc d'ordre 1 en espace — sauf Lax-Wendroff et JST qui sont intrinsèquement d'ordre 2).
 
 ### Taxonomie des flux numériques
 
-On distingue deux familles de flux numériques :
+On distingue trois familles de flux numériques :
 
 **Schémas décentrés (*upwind*)** — Ils exploitent la structure d'ondes du problème de Riemann pour propager l'information dans le sens physique. Chaque schéma résout (exactement ou approximativement) le problème de Riemann local à l'interface :
 
@@ -18,7 +18,13 @@ On distingue deux familles de flux numériques :
 - **HLLC** (§4.4) : trois ondes, incluant l'onde de contact.
 - **Roe** (§4.5) : linéarisation exacte de la matrice de flux.
 
-Ces cinq schémas sont **composables** avec les reconstructions d'ordre élevé (MUSCL, ENO, WENO) : on peut remplacer la reconstruction constante par une reconstruction d'ordre supérieur sans modifier le solveur de Riemann (cf. §3.5, Chapitre 5).
+Avec la variante de Roe sans correction d'entropie, ces six flux sont **composables** avec les reconstructions d'ordre élevé (MUSCL, ENO, WENO) : on peut remplacer la reconstruction constante par une reconstruction d'ordre supérieur sans modifier le solveur de Riemann (cf. §3.5, Chapitre 5).
+
+**Schémas de décomposition de flux (*flux vector splitting*)** — Ils séparent le flux en une partie convective et une partie pression, chacune décentrée selon le nombre de Mach local, sans résoudre de problème de Riemann :
+
+- **AUSM+** et **AUSM+-up** (§4.9).
+
+Ils sont eux aussi composables, ce qui porte à huit le nombre de flux composables.
 
 **Schémas centrés** — Ils n'utilisent pas de solveur de Riemann. Le flux est une moyenne des flux physiques gauche et droit, corrigée par un terme de dissipation numérique :
 
@@ -759,7 +765,7 @@ C'est une illustration concrète d'un compromis général : un schéma conçu po
 
 ## §4.10 Tableau comparatif
 
-Le tableau suivant résume les caractéristiques des huit schémas de flux :
+Le tableau suivant résume les caractéristiques des onze schémas de flux :
 
 | Schéma | Type | Ondes résolues | Ordre spatial | Composable | Coût relatif | Dissipation | Cas d'usage recommandé |
 |--------|------|---------------|---------------|------------|-------------|-------------|----------------------|
@@ -779,7 +785,7 @@ Le tableau suivant résume les caractéristiques des huit schémas de flux :
 
 - **Ondes résolues** : nombre de familles d'ondes distinguées par le schéma. Plus le nombre est élevé, meilleure est la résolution des discontinuités. Les schémas centrés n'utilisent pas de solveur de Riemann et ne résolvent pas les ondes au sens strict.
 
-- **Composable** : indique si le flux peut être combiné avec les reconstructions d'ordre élevé (MUSCL, ENO, WENO). Les 7 flux composables (Godunov, Rusanov, HLL, HLLC, Roe, Roe sans correction, AUSM+) combinés avec 6 reconstructions donnent 42 schémas d'ordre élevé (cf. §3.7).
+- **Composable** : indique si le flux peut être combiné avec les reconstructions d'ordre élevé (MUSCL, ENO, WENO). Les 8 flux composables (Godunov, Rusanov, HLL, HLLC, Roe, Roe sans correction, AUSM+, AUSM+-up) combinés avec 6 reconstructions donnent 48 schémas d'ordre élevé (cf. §3.7).
 
 - **Coût relatif** : estimation qualitative du coût par interface. Godunov est le plus cher (itération de Newton). Les schémas vectorisés (Rusanov, HLL, Lax-Friedrichs) sont les moins chers. HLLC coûte un peu plus que HLL (états étoile).
 
@@ -813,7 +819,7 @@ Le code correspondant à ce chapitre se trouve dans le répertoire `euler1d/sche
 | [`jst.py`](../euler1d/schemes/flux/jst.py) | JST | §4.8 |
 | [`__init__.py`](../euler1d/schemes/flux/__init__.py) | Registre des flux composables | — |
 
-Le registre `__init__.py` expose la fonction `get_flux_solver(name)` qui instancie les sept flux composables (Rusanov, HLL, HLLC, Roe, Roe-NC, Godunov, AUSM+) par nom. Les trois schémas centrés non composables (Lax-Friedrichs, Lax-Wendroff, JST) sont enregistrés directement dans le registre principal `euler1d/schemes/__init__.py` (cf. §3.7).
+Le registre `__init__.py` expose la fonction `get_flux_solver(name)` qui instancie les huit flux composables (Rusanov, HLL, HLLC, Roe, Roe-NC, Godunov, AUSM+, AUSM+-up) par nom. Les trois schémas centrés non composables (Lax-Friedrichs, Lax-Wendroff, JST) sont enregistrés directement dans le registre principal `euler1d/schemes/__init__.py` (cf. §3.7).
 
 ---
 

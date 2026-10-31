@@ -154,6 +154,18 @@ def _compute_rhs(
 TIME_INTEGRATORS = ("RK1", "RK2", "RK3", "RK4", "RK5")
 
 
+def select_time_integrator(scheme: NumericalScheme, requested: str | None) -> str:
+    """Runge-Kutta method actually used for *scheme*.
+
+    Schemes whose flux already embeds the time integration (Lax-Wendroff)
+    always use RK1, whatever is requested; otherwise the requested method,
+    or the scheme's default when None ("Auto").
+    """
+    if scheme.time_integral_included:
+        return "RK1"
+    return requested or scheme.default_time_integrator
+
+
 def initial_state(config: SimulationConfig) -> tuple[np.ndarray, np.ndarray]:
     """Cell centres and initial cell averages U(3, N).
 
@@ -307,13 +319,7 @@ def run_simulation(
     t = 0.0
     t_final = tc.t_final
 
-    # Schemes with built-in time integration (e.g. Lax-Wendroff) must use RK1
-    if scheme.time_integral_included:
-        rk = "RK1"
-    elif time_integrator is None:
-        rk = scheme.default_time_integrator
-    else:
-        rk = time_integrator
+    rk = select_time_integrator(scheme, time_integrator)
 
     # Snapshot times
     if n_snapshots > 0:
