@@ -9,6 +9,11 @@ from streamlit.testing.v1 import AppTest
 ENTRY = str(Path(__file__).resolve().parents[1] / "Solveur_Euler_1D.py")
 
 
+@pytest.fixture(autouse=True)
+def _walkthrough_shown(monkeypatch):
+    monkeypatch.setenv("SHOW_WALKTHROUGH", "1")
+
+
 def _app():
     at = AppTest.from_file(ENTRY, default_timeout=120)
     at.run()
@@ -19,6 +24,14 @@ def _app():
 def test_home_is_the_finite_volume_page():
     at = _app()
     assert any("volumes finis" in t.value for t in at.title)
+
+
+def test_walkthrough_hidden_by_default(monkeypatch):
+    # Work in progress: not shown on the deployed app unless SHOW_WALKTHROUGH is set.
+    monkeypatch.delenv("SHOW_WALKTHROUGH")
+    at = _app()
+    assert not any("volumes finis" in t.value for t in at.title)
+    assert any(s.label == "Test case" for s in at.selectbox)
 
 
 def test_solver_page_runs():
