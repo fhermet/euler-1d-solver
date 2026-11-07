@@ -40,7 +40,7 @@ Solveur_Euler_1D.py    Streamlit entry point: navigation between the three pages
 ui_common.py           Plotly styling, constants, shared scheme selectors
 ui_walkthrough.py      Plotly figures of the eight walkthrough screens
 pages/
-├── finite_volumes.py       Home page: the finite-volume method in eight screens (French)
+├── finite_volumes.py       The finite-volume method in eight screens (French, hidden)
 ├── solver.py               Solver: scheme comparison, convergence, animation
 └── 2_Fourier_Analysis.py   Numerical dissipation and dispersion
 tests/                 pytest suite
@@ -113,7 +113,10 @@ MUSCL limiters: `minmod`, `van-leer` (default), `superbee`, `mc`, `van-albada`.
 
 ## Streamlit interface
 
-### Home page: Comprendre les volumes finis (in French)
+### Page in preparation: Comprendre les volumes finis (in French)
+
+Work in progress, hidden on the deployed app. To show it (as the home page):
+`SHOW_WALKTHROUGH=1 streamlit run Solveur_Euler_1D.py`.
 
 Eight short screens, each asking one question and showing one graph with one
 annotated bubble, two sentences of explanation and one thing to try.
